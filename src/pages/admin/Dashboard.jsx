@@ -35,8 +35,8 @@ export function AdminHeader({ onSearch }) {
     <header
       className="sticky top-0 z-30 flex h-16 w-full items-center justify-between px-5 text-white shadow-md rounded-b-[24px]"
       style={{
-        background: "linear-gradient(180deg, #1d2d6d 0%, #131e49 60%, #090f24 100%)",
-      }}
+       background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+        }}
     >
       <div className="flex items-center gap-3 flex-1 max-w-lg">
         <div className="relative w-full">
@@ -88,8 +88,8 @@ export function AdminDashboard() {
         <div
           className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           style={{
-            background: "linear-gradient(135deg, #1d2d6d 0%, #131e49 50%, #090f24 100%)",
-          }}
+           background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+        }}
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">

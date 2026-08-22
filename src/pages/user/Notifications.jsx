@@ -149,44 +149,44 @@ export function Notifications() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-10">
       {/* BRAND BLUE HEADER WITH INTEGRATED FILTER TABS */}
-      <header
-        className="relative rounded-b-4xl px-5 pb-12 pt-6 text-white shadow-sm"
-        style={{
-          background: "linear-gradient(180deg, #3b5bdb 0%, #2b44b8 60%, #1d2d6d 100%)",
-        }}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <ArrowLeft className="size-6 text-white" />
-          </button>
-          <h1 className="text-lg font-bold text-white text-center flex-1 pr-6">
-            Notification
-          </h1>
-        </div>
+<header
+  className="relative rounded-b-4xl px-5 pb-12 pt-6 text-white shadow-sm"
+  style={{
+    background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+  }}
+>
+  <div className="flex items-center justify-between mb-6">
+    <button
+      onClick={() => navigate(-1)}
+      className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+    >
+      <ArrowLeft className="size-6 text-white" />
+    </button>
+    <h1 className="text-lg font-bold text-white text-center flex-1 pr-6">
+      Notification
+    </h1>
+  </div>
 
-        {/* PILL FILTER TABS */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
-          {FILTER_TABS.map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                  isActive
-                    ? "bg-[#1d2d6d] text-white shadow-inner"
-                    : "bg-white text-gray-800 hover:bg-white/90"
-                }`}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-      </header>
+  {/* PILL FILTER TABS */}
+  <div className="flex items-center justify-center gap-2 overflow-x-auto no-scrollbar pt-1">
+    {FILTER_TABS.map((tab) => {
+      const isActive = activeTab === tab;
+      return (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+            isActive
+              ? "bg-[#1d2d6d] text-white shadow-inner"
+              : "bg-white text-gray-800 hover:bg-white/90"
+          }`}
+        >
+          {tab}
+        </button>
+      );
+    })}
+  </div>
+</header>
 
       {/* NOTIFICATION CONTENT CONTAINER */}
       <div className="px-5 mt-6 space-y-6 max-w-md mx-auto">

@@ -67,8 +67,6 @@ export function LoanRepay() {
 
   const responseReference = response?.reference || reference;
 
-  console.log("🔥 REFERENCE BEING SENT:", responseReference);
-
   (async () => {
     try {
       console.log("🔥 ABOUT TO VERIFY WITH BACKEND");
@@ -79,8 +77,6 @@ export function LoanRepay() {
         transactionId: response?.transaction || response?.trx || response?.transactionId, 
         tx_ref:response?.trxref, // backward-compat field name during rollout
       });
-
-      console.log("🔥 BACKEND VERIFICATION RESPONSE:", verification);
 
       if (!verification?.success) {
         return toast.error(
@@ -130,8 +126,8 @@ export function LoanRepay() {
   style={{
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-    background: "linear-gradient(to bottom, #2563eb, #4f46e5 60%, #4338ca)",
-  }}
+   background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+        }}
 >
   <div className="flex items-center justify-between">
     <button
