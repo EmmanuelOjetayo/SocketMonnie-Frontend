@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* SOCKET MONI — DESIGN SYSTEM TOKENS                                  */
+/* Source of truth for colors, radius, shadows, spacing & typography.  */
+/* Reference every visual value from here — never hardcode in JSX.    */
+/* ------------------------------------------------------------------ */
+@theme {
+  /* Brand */
+  --color-brand-50: #eef1fd;
+  --color-brand-100: #dce2fb;
+  --color-brand-200: #b8c4f7;
+  --color-brand-300: #93a6f3;
+  --color-brand-400: #7089ee;
+  --color-brand-500: #5b76e1;
+  --color-brand-600: #4a5fd0;
+  --color-brand-700: #3c4cac;
+  --color-brand-800: #2c3880;
+  --color-brand-900: #131a3d;
+  --color-brand-950: #0b1130;
+
+  /* Success / positive (savings, growth, approved) */
+  --color-success-50: #e9fbf3;
+  --color-success-100: #cdf5e2;
+  --color-success-500: #17b26a;
+  --color-success-600: #109457;
+  --color-success-700: #0c7a46;
+
+  /* Warning / pending */
+  --color-warning-50: #fff6e8;
+  --color-warning-100: #ffe8bf;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d6820a;
+
+  /* Danger / overdue / rejected */
+  --color-danger-50: #fdecec;
+  --color-danger-100: #fad2d2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #d63535;
+
+  /* Info / neutral accent */
+  --color-info-50: #e8f4fd;
+  --color-info-500: #2b9cf2;
+
+  /* Surface & text */
+  --color-surface: #f7f8fc;
+  --color-surface-alt: #eef0f8;
+  --color-card: #ffffff;
+  --color-border: #e6e9f4;
+  --color-text-primary: #10142c;
+  --color-text-secondary: #666e93;
+  --color-text-muted: #9aa1c2;
+  --color-text-inverted: #ffffff;
+
+  /* Radius scale */
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+  --radius-pill: 999px;
+
+  /* Fonts */
+  --font-sans: "Inter", "Sora", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px -4px rgba(19, 26, 61, 0.08);
+  --shadow-card-lift: 0 12px 32px -8px rgba(19, 26, 61, 0.16);
+  --shadow-nav: 0 -4px 20px -4px rgba(19, 26, 61, 0.08);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface text-text-primary font-sans antialiased;
+  }
+
+  /* App shell is mobile-first: cap width on larger viewports so the
+     cloned mobile UI sits centered like a phone frame on desktop. */
+  #app-shell {
+    @apply mx-auto min-h-screen w-full max-w-[480px] bg-surface relative;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef1fd;
+  --color-brand-100: #dce2fb;
+  --color-brand-200: #b8c4f7;
+  --color-brand-300: #93a6f3;
+  --color-brand-400: #7089ee;
+  --color-brand-500: #5b76e1;
+  --color-brand-600: #4a5fd0;
+  --color-brand-700: #3c4cac;
+  --color-brand-800: #2c3880;
+  --color-brand-900: #131a3d;
+  --color-brand-950: #0b1130;
+
+  --color-success-50: #e9fbf3;
+  --color-success-500: #17b26a;
+  --color-success-600: #109457;
+
+  --color-warning-50: #fff6e8;
+  --color-warning-500: #f59e0b;
+
+  --color-danger-50: #fdecec;
+  --color-danger-500: #ef4444;
+
+  --color-info-50: #e8f4fd;
+  --color-info-500: #2b9cf2;
+
+  --color-surface: #f7f8fc;
+  --color-surface-alt: #eef0f8;
+  --color-card: #ffffff;
+  --color-border: #e6e9f4;
+  --color-text-primary: #10142c;
+  --color-text-secondary: #666e93;
+  --color-text-muted: #9aa1c2;
+  --color-text-inverted: #ffffff;
+
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+  --radius-pill: 999px;
+
+  --font-sans: "Inter", "Sora", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 4px 24px -4px rgba(19, 26, 61, 0.08);
+  --shadow-card-lift: 0 12px 32px -8px rgba(19, 26, 61, 0.16);
+  --shadow-nav: 0 -4px 20px -4px rgba(19, 26, 61, 0.08);
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-surface text-text-primary font-sans antialiased;
+  }
+  #app-shell {
+    @apply mx-auto min-h-screen w-full max-w-[480px] bg-surface relative;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

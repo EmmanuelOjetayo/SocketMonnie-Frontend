@@ -1,0 +1,28 @@
+{
+  "short_name": "Socket Monnie",
+  "name": "Socket MonniePortal",
+  "description": "A Digital Cooperative Society",
+  "icons": [
+    {
+      "src": "vite.",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#722F37",
+  "background_color": "#ffffff"
+}
