@@ -106,17 +106,30 @@ const metrics = calculateLoanMetrics(activeLoan); // pass active or selected loa
   return (
     <div className="min-h-screen bg-[#F4F6F9] pb-24 font-sans text-gray-900">
       {/* Top Header with Back Arrow */}
-      <div className="sticky top-0 z-10 bg-[#F4F6F9]/80 backdrop-blur-md px-5 py-4 flex items-center justify-between border-b border-gray-200/50">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex items-center justify-center size-10 rounded-full bg-white border border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-        <h1 className="text-base font-bold text-gray-900">Loans</h1>
-        <div className="w-10" />
-      </div>
+<header
+  className="relative px-5 py-4 text-white shadow-lg"
+  style={{
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+        }}
+>
+  <div className="flex items-center justify-between">
+    <button
+      type="button"
+      onClick={() => navigate(-1)}
+      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
+    >
+      <ArrowLeft className="h-5 w-5" />
+    </button>
+
+    <h1 className="text-lg font-bold tracking-tight">
+      Loans 
+    </h1>
+
+    <div className="w-10" />
+  </div>
+</header>
 
       <div className="px-5 space-y-5 mt-3">
         {(loadingEligibility || loadingActiveLoan || loadingHistory) ? (

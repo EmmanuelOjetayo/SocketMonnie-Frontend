@@ -50,6 +50,7 @@ export function ForgotPassword() {
         </form>
       ) : (
         <div className="mt-8 text-center">
+           <p className="text-xs font-bold text-red-900">Check SPAM for your OTP code</p>
           <p className="text-sm text-text-secondary">
             Didn't receive the OTP?{" "}
             <button

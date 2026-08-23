@@ -37,26 +37,26 @@ import {
 
 import { formatNaira } from "@/utils/format";
 
-const MONTHS = [
-  { value: 1, label: "January" },
-  { value: 2, label: "February" },
-  { value: 3, label: "March" },
-  { value: 4, label: "April" },
-  { value: 5, label: "May" },
-  { value: 6, label: "June" },
-  { value: 7, label: "July" },
-  { value: 8, label: "August" },
-  { value: 9, label: "September" },
-  { value: 10, label: "October" },
-  { value: 11, label: "November" },
-  { value: 12, label: "December" },
+const MONTH_LABELS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const REPORT_TYPES = [
   {
     id: "savings",
     label: "Savings Report",
-    icon: PiggyBank,
+    icon: BarChart3,
   },
   {
     id: "loan",
@@ -66,7 +66,7 @@ const REPORT_TYPES = [
   {
     id: "transaction",
     label: "Transaction Report",
-    icon: Receipt,
+    icon: ArrowRightLeft,
   },
 ];
 
@@ -74,17 +74,31 @@ export function Reports() {
   const navigate = useNavigate();
 
   const currentDate = new Date();
+  const currentMonthValue = currentDate.getMonth() + 1;
+  const currentYearValue = currentDate.getFullYear();
 
-  const [selectedMonth, setSelectedMonth] = useState(
-    currentDate.getMonth() + 1
-  );
-
-  const [selectedYear, setSelectedYear] = useState(
-    currentDate.getFullYear()
-  );
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthValue);
+  const [selectedYear, setSelectedYear] = useState(currentYearValue);
 
   const [activeTab, setActiveTab] = useState("savings");
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Past months for the quick filter row, most recent first, alongside
+  // the "This Month" shortcut which always maps to the current month/year.
+  const pastMonths = Array.from({ length: 6 }).reduce((list) => {
+    const last = list[list.length - 1] || {
+      value: currentMonthValue,
+      year: currentYearValue,
+    };
+    let value = last.value - 1;
+    let year = last.year;
+    if (value < 1) {
+      value = 12;
+      year -= 1;
+    }
+    list.push({ value, year, label: MONTH_LABELS[value - 1] });
+    return list;
+  }, []);
 
   // Monthly chart data
   const {
@@ -313,31 +327,31 @@ export function Reports() {
 
       <main className="mt-4 space-y-5 px-4">
         {/* SUMMARY CARDS */}
-        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="grid grid-cols-4 gap-2">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
             return (
               <div
                 key={card.id}
-                className={`flex w-28 shrink-0 flex-col justify-between rounded-2xl border p-3 shadow-sm ${card.cardBg}`}
+                className={`flex flex-col justify-between rounded-2xl border p-2.5 shadow-sm ${card.cardBg}`}
               >
                 <div
-                  className={`mb-3 flex h-8 w-8 items-center justify-center rounded-full ${card.iconBg}`}
+                  className={`mb-3 flex h-7 w-7 items-center justify-center rounded-full ${card.iconBg}`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-3.5 w-3.5" />
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-extrabold leading-tight text-gray-800">
+                  <p className="text-[9px] font-extrabold leading-tight text-gray-800">
                     {card.title}
                   </p>
 
-                  <p className="mt-0.5 text-xs font-black text-gray-900">
+                  <p className="mt-0.5 text-[11px] font-black text-gray-900 truncate">
                     {card.value}
                   </p>
 
-                  <div className="mt-2 text-[9px] leading-tight">
+                  <div className="mt-1.5 text-[8px] leading-tight">
                     <span
                       className={`block font-bold ${card.textColor}`}
                     >
@@ -400,17 +414,35 @@ export function Reports() {
         {/* MONTH FILTER */}
         <div className="rounded-xl border border-gray-100 bg-white p-1 shadow-sm">
           <div className="flex gap-1 overflow-x-auto scrollbar-none">
-            {MONTHS.map((month) => {
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMonth(currentMonthValue);
+                setSelectedYear(currentYearValue);
+              }}
+              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[10px] font-bold transition ${
+                selectedMonth === currentMonthValue &&
+                selectedYear === currentYearValue
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-900 hover:bg-gray-50"
+              }`}
+            >
+              This Month
+            </button>
+
+            {pastMonths.map((month) => {
               const isSelected =
-                selectedMonth === month.value;
+                selectedMonth === month.value &&
+                selectedYear === month.year;
 
               return (
                 <button
-                  key={month.value}
+                  key={`${month.year}-${month.value}`}
                   type="button"
-                  onClick={() =>
-                    setSelectedMonth(month.value)
-                  }
+                  onClick={() => {
+                    setSelectedMonth(month.value);
+                    setSelectedYear(month.year);
+                  }}
                   className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[10px] font-bold transition ${
                     isSelected
                       ? "bg-blue-600 text-white shadow-sm"
@@ -472,7 +504,7 @@ export function Reports() {
 
             {/* SAVINGS REPORT */}
             <section>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-0.5 flex items-center justify-between">
                 <h3 className="text-xs font-extrabold text-gray-900">
                   Savings Report
                 </h3>
@@ -487,6 +519,9 @@ export function Reports() {
                   Download
                 </button>
               </div>
+              <p className="mb-2 text-[10px] font-medium text-gray-400">
+                Summary of your savings activities
+              </p>
 
               {loadingStatement ? (
                 <LoadingState rows={3} />
@@ -501,7 +536,7 @@ export function Reports() {
                         </span>
 
                         <span className="mt-2 block text-sm font-black text-emerald-600">
-                          {formatNaira(totalSaved)}
+                          {formatNaira(totalSaved, { decimals: 2 })}
                         </span>
 
                         <p className="mt-3 text-[9px] font-bold text-gray-400">
@@ -516,19 +551,17 @@ export function Reports() {
                       <div className="space-y-2.5 pl-3">
                         <ReportMetric
                           label="Total Deposit"
-                          value={formatNaira(totalDeposits)}
+                          value={formatNaira(totalDeposits, { decimals: 2 })}
                         />
 
                         <ReportMetric
                           label="Total Withdrawals"
-                          value={formatNaira(
-                            totalWithdrawals
-                          )}
+                          value={formatNaira(totalWithdrawals, { decimals: 2 })}
                         />
 
                         <ReportMetric
                           label="Net Growth"
-                          value={formatNaira(netGrowth)}
+                          value={formatNaira(netGrowth, { decimals: 2 })}
                           valueClass="text-emerald-600"
                         />
                       </div>
