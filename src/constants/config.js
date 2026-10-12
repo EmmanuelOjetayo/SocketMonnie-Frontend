@@ -1,6 +1,6 @@
 // Runtime + business-rule constants sourced from the PRD and Figma.
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://socketmonie.onrender.com/api";
 
 // Savings Plans (PRD)
 export const SAVINGS_PLANS = [
