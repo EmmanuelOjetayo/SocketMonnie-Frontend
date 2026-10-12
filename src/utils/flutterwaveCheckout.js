@@ -97,8 +97,20 @@ export async function payWithFlutterwave({
         },
         callback: (response) => {
           // FLW Inline callback fires on completion; response carries
-          // { status, transaction_id, tx_ref, flw_ref, amount, currency, ... }.
-          resolve(response);
+          // { status, transaction_id, transactionId, tx_ref, txRef, ... }.
+          // Normalize field names and status so callers always get
+          // snake_case keys and a canonical "successful" status.
+          const normalized = {
+            ...response,
+            status:
+              response?.status === "success" || response?.status === "successful"
+                ? "successful"
+                : response?.status,
+            tx_ref: response?.tx_ref || response?.txRef || response?.reference || tx_ref,
+            transaction_id:
+              response?.transaction_id || response?.transactionId || response?.id || null,
+          };
+          resolve(normalized);
         },
         onclose: () => {
           reject(new Error("PAYMENT_WINDOW_CLOSED"));
