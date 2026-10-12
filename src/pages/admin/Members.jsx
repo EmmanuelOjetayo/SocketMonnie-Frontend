@@ -31,6 +31,21 @@ import { formatNaira, formatDate, getScoreRating } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/utils/cn";
 
+// Helper: compute score badge class without nested template literals
+function getScoreBadgeClass(score) {
+  const tier = getScoreRating(score);
+  const tierMap = {
+    elite: "bg-yellow-100 text-yellow-800",
+    excellent: "bg-emerald-100 text-emerald-800",
+    good: "bg-blue-100 text-blue-800",
+    fair: "bg-amber-100 text-amber-800",
+  };
+  const defaultTier = "bg-rose-100 text-rose-800";
+  const key = tier ? tier.replace(" ", "").toLowerCase() : "fair";
+  const classes = tierMap[key] || defaultTier;
+  return `text-[10px] font-extrabold px-2 py-0.5 rounded-full ${classes}`;
+}
+
 export function AdminMembers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -299,9 +314,8 @@ export function AdminMembers() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${rating.tier === "elite" ? "bg-yellow-100 text-yellow-800" : rating.tier === "excellent" ? "bg-emerald-100 text-emerald-800" : rating.tier === "good" ? "bg-blue-100 text-blue-800" : rating.tier === "fair" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`>
-                            {m.socketScore || 0} — {rating.label}
-                          </span>
+                          {/* Score & Rating Label */}
+                          <span className={getScoreBadgeClass(m.socketScore || 0)}>{m.socketScore || 0} — {rating.label}</span>
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={kycBadgeVariant(m.kycStatus)}>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import TopHeader from "@/components/navigation/TopHeader";
+import { TopHeader } from "@/components/navigation/TopHeader";
 import { Save } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
