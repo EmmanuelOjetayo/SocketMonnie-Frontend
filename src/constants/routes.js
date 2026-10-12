@@ -36,6 +36,7 @@ export const ROUTES = {
   PAYMENTS_SAVINGS_SUCCESS: "/payments/savings/success",
   PAYMENTS_SAVINGS_FAILED: "/payments/savings/failed",
   MEMBERSHIP_FEE: "/membership-fee",
+  MINUTES: "/minutes",
   REPORTS: "/dashboard/reports",
   NOTIFICATIONS: "/dashboard/notifications",
   PROFILE: "/dashboard/profile",

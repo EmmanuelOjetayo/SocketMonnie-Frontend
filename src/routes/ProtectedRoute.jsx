@@ -6,7 +6,7 @@ import { ROUTES } from "@/constants/routes";
 export function ProtectedRoute({ roles }) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
-  // 1. While AuthContext is checking localStorage/token on refresh, show a loader
+  // 1. While AuthContext is restoring the session on refresh, show a loader
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">

@@ -6,13 +6,14 @@ import { mockMember } from "@/mock/member";
  * ## Login
  * POST /api/auth/login
  * Body: { email, password }
- * Response: { success, token, user }
+ * Response: { success, user }
+ * Backend sets an httpOnly cookie — no token returned.
  */
 export async function login({ email, password }) {
   if (USE_MOCK) {
-    return mockDelay({ success: true, token: "mock_jwt_token", user: mockMember });
+    return mockDelay({ success: true, user: mockMember });
   }
-  return apiClient.post("/auth/login", { email, password }, { auth: false });
+  return apiClient.post("/auth/login", { email, password });
 }
 
 /**
@@ -25,20 +26,21 @@ export async function register(payload) {
   if (USE_MOCK) {
     return mockDelay({ success: true, memberId: "mem_new", status: "pending_kyc" });
   }
-  return apiClient.post("/auth/register", payload, { auth: false });
+  return apiClient.post("/auth/register", payload);
 }
 
 /**
  * ## Verify OTP
  * POST /api/auth/verify-otp
  * Body: { email, otp }
- * Response: { success, token, user }
+ * Response: { success, verified, user }
+ * Backend sets an httpOnly cookie — no token returned.
  */
 export async function verifyOtp({ email, otp }) {
   if (USE_MOCK) {
     return mockDelay({ success: true, verified: true });
   }
-  return apiClient.post("/auth/verify-otp", { email, otp }, { auth: false });
+  return apiClient.post("/auth/verify-otp", { email, otp });
 }
 
 /**
@@ -51,7 +53,7 @@ export async function forgotPassword({ email }) {
   if (USE_MOCK) {
     return mockDelay({ success: true, message: "Reset link sent" });
   }
-  return apiClient.post("/auth/forgot-password", { email }, { auth: false });
+  return apiClient.post("/auth/forgot-password", { email });
 }
 
 /**
@@ -64,15 +66,15 @@ export async function resetPassword({ email, otp, newPassword }) {
   if (USE_MOCK) {
     return mockDelay({ success: true });
   }
-  return apiClient.post("/auth/reset-password", { email, otp, newPassword }, { auth: false });
+  return apiClient.post("/auth/reset-password", { email, otp, newPassword });
 }
 
 /**
  * ## Logout
  * POST /api/auth/logout
+ * Backend clears the httpOnly cookie.
  */
 export async function logout() {
-  localStorage.removeItem("socketmoni_token");
   if (USE_MOCK) return mockDelay({ success: true });
   return apiClient.post("/auth/logout", {});
 }

@@ -1,26 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import {
-  Search,
-  Eye,
-  XCircle,
-  CheckCircle,
-  FileText,
-  RefreshCw,
-  Bell,
-  Clock,
-  Shield,
-  CreditCard,
-  Building2,
-  DollarSign,
-  AlertTriangle,
-  User,
-  ChevronRight,
-  Calendar,
-  Filter,
-  CheckCircle2,
-  Target,
-  Sparkles
-} from "lucide-react";
+import { Search, Eye, XCircle, CheckCircle, FileText, RefreshCw, Bell, Clock, Shield, CreditCard, Building2, DollarSign, AlertTriangle, User, ChevronRight, Calendar, Filter, CheckCircle2, Target, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -30,84 +9,10 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { BottomSheet } from "@/components/feedback/BottomSheet";
 import { useAsync } from "@/hooks/useAsync";
-import {
-  getAdminLoans,
-  approveLoan,
-  rejectLoan,
-  getLoanById,
-} from "@/services/adminService";
-import toast from "react-hot-toast";
+import { getAdminLoans, approveLoan, rejectLoan, getLoanById } from "@/services/adminService";
 import { formatNaira, formatDate } from "@/utils/format";
-
-// ─── TOP HEADER COMPONENT ────────────────────────────────
-function AdminHeader({ onSearch }) {
-  const [query, setQuery] = useState("");
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && onSearch) {
-      onSearch(query);
-    }
-  };
-
-  return (
-    <header 
-      className="sticky top-0 z-30 flex h-16 w-full items-center justify-between px-5 text-white shadow-md rounded-b-[24px]"
-      style={{
-        background: "linear-gradient(180deg, #1d2d6d 0%, #131e49 60%, #090f24 100%)",
-      }}
-    >
-      <div className="flex items-center gap-3 flex-1 max-w-lg">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-2.5 size-4 text-[#dee3f9]/70" />
-          <input
-            type="text"
-            placeholder="Search loan #, member name... (Press Enter)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-full rounded-xl border border-[#bdc8f3]/30 bg-white/10 py-2 pl-9 pr-4 text-xs font-medium text-white placeholder:text-[#dee3f9]/60 backdrop-blur-md transition-all focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-300 sm:flex">
-          <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-          System Active
-        </div>
-
-        <button className="relative rounded-full p-2 text-[#dee3f9] hover:bg-white/10 transition-colors">
-          <Bell className="size-4" />
-          <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-400" />
-        </button>
-      </div>
-    </header>
-  );
-}
-
-// ─── PREREQUISITE ITEM CHECK ─────────────────────────────
-function PrereqItem({ label, met }) {
-  return (
-    <div className="flex items-center justify-between border-b border-[#dee3f9]/50 py-1.5 text-xs last:border-0">
-      <span className={met ? "font-semibold text-[#090f24]" : "text-gray-400"}>
-        {label}
-      </span>
-      {met ? (
-        <span className="inline-flex items-center gap-1 font-extrabold text-emerald-600 text-[11px]">
-          <CheckCircle2 className="size-3.5" /> Verified
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1 font-extrabold text-rose-500 text-[11px]">
-          <XCircle className="size-3.5" /> Missing
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════
+import { ROUTES } from "@/constants/routes";
+import { cn } from "@/utils/cn";
 
 export function AdminLoans() {
   const [statusFilter, setStatusFilter] = useState("");
@@ -226,18 +131,16 @@ export function AdminLoans() {
   return (
     <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
       {/* Top Navigation */}
-      <AdminHeader
+      <TopHeader
         onSearch={(q) => setSearch(q)}
       />
 
       <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
-        
+
         {/* Loan Operations Hero Banner */}
         <div
           className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{
-            background: "linear-gradient(135deg, #1d2d6d 0%, #131e49 50%, #090f24 100%)",
-          }}
+          style={{ background: "linear-gradient(135deg, #5B76E1 0%, #131e49 50%, #090f24 100%)" }}
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
@@ -354,18 +257,6 @@ export function AdminLoans() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-[#dee3f9] pt-2 text-[11px]">
-                    <div className="flex items-center gap-1.5 text-gray-500">
-                      <Clock className="size-3 text-emerald-600" />
-                      <span>
-                        Rate: <strong className="text-[#090f24] font-bold">{loan.interestRate}%</strong>
-                      </span>
-                    </div>
-                    <span className="flex items-center font-extrabold text-[#3b5bdb] hover:underline">
-                      View Details <ChevronRight className="size-3.5 ml-0.5" />
-                    </span>
-                  </div>
                 </Card>
               );
             })}
@@ -461,7 +352,9 @@ export function AdminLoans() {
                   </div>
                   <div>
                     <span className="block text-[10px] text-gray-500 font-medium">Duration</span>
-                    <span className="font-semibold text-[#090f24]">{loanDetail.durationMonths} Month(s)</span>
+                    <span className="font-semibold text-[#090f24]">
+                      {loanDetail.durationMonths} Month(s)
+                    </span>
                   </div>
                 </div>
 
@@ -508,18 +401,20 @@ export function AdminLoans() {
                   <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight text-[#090f24]">
                     <Shield className="size-3.5 text-emerald-600" /> Application Checks
                   </h4>
-                  <PrereqItem
-                    label="Bank Account Setup"
-                    met={!!(bankInfo.accountNumber && bankInfo.bankCode)}
-                  />
-                  <PrereqItem
-                    label="Bank Name Match"
-                    met={!!bankInfo.accountName}
-                  />
-                  <PrereqItem
-                    label="KYC Verification Passed"
-                    met={memberObj.kycStatus === "approved"}
-                  />
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <span className="block text-[10px] text-gray-500 font-medium">Bank Account Setup</span>
+                      <span className="font-semibold text-[#090f24]">{!!(bankInfo.accountNumber && bankInfo.bankCode) ? "Verified" : "Missing"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-500 font-medium">Bank Name Match</span>
+                      <span className="font-semibold text-[#090f24]">{!!bankInfo.accountName ? "Verified" : "Missing"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-500 font-medium">KYC Verification Passed</span>
+                      <span className="font-semibold text-[#090f24] capitalize">{memberObj.kycStatus === "approved" ? "Passed" : "Not Approved"}</span>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -592,7 +487,7 @@ export function AdminLoans() {
           }}
           title="Reject Loan Application"
         >
-          <div className="space-y-4 pt-1">
+          <div className="space-y-4">
             <p className="text-xs text-gray-600">
               Provide a clear reason for rejecting this application. This note will be recorded in the system audit and shown to the applicant.
             </p>

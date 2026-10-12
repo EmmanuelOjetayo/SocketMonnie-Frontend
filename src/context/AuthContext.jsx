@@ -16,15 +16,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore logged-in user on page refresh
+  // Restore logged-in user on page refresh (httpOnly cookie is sent automatically)
   useEffect(() => {
-    const token = localStorage.getItem("socketmoni_token");
-
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
     getCurrentUser()
       .then((res) => {
         // Correctly handling response structure { success, data: { user } } or { success, user }
@@ -34,25 +27,21 @@ export function AuthProvider({ children }) {
           setUser(fetchedUser);
         } else {
           console.error("Invalid user payload", res);
-          localStorage.removeItem("socketmoni_token");
         }
       })
       .catch((err) => {
         console.error("Failed to restore session on refresh:", err);
-        // Only clear if status is 401
         if (err?.status === 401 || err?.status === 403) {
-      localStorage.removeItem("socketmoni_token");
-      setUser(null);
-    }
+          setUser(null);
+        }
       })
       .finally(() => {
         setIsLoading(false);
       });
   }, []);
 
-  // Used by both Login and Verify OTP
-  const authenticate = useCallback((token, userData) => {
-    localStorage.setItem("socketmoni_token", token);
+  // Used by both Login and Verify OTP — no token storage, cookie is set by backend
+  const authenticate = useCallback((userData) => {
     setUser(userData);
   }, []);
 
@@ -60,20 +49,19 @@ export function AuthProvider({ children }) {
   const login = useCallback(
     async (credentials) => {
       const res = await authService.login(credentials);
-      authenticate(res.data.token, res.data.user);
+      authenticate(res.data.user);
       return res;
     },
     [authenticate]
   );
 
-  // Logout
+  // Logout — cookie is cleared by backend
   const logout = useCallback(async () => {
     try {
       await authService.logout();
     } catch (error) {
       // Ignore logout API errors
     } finally {
-      localStorage.removeItem("socketmoni_token");
       setUser(null);
     }
   }, []);

@@ -2,13 +2,11 @@ import { API_BASE_URL } from "@/constants/config";
 
 /**
  * Thin fetch wrapper every service module builds on.
- * - Attaches JSON headers + Bearer token automatically.
+ * - Sends httpOnly cookies automatically via credentials: 'include'.
  * - Auto-detects FormData and leaves Content-Type header to the browser.
  * - Throws a normalized Error with `.status` and `.data` for callers to catch.
  */
-async function request(path, { method = "GET", body, headers, auth = true } = {}) {
-  const token = auth ? localStorage.getItem("socketmoni_token") : null;
-
+async function request(path, { method = "GET", body, headers } = {}) {
   // Check if body is FormData (e.g., file uploads)
   const isFormData = body instanceof FormData;
 
@@ -16,7 +14,6 @@ async function request(path, { method = "GET", body, headers, auth = true } = {}
   const defaultHeaders = {
     // Only set Content-Type to application/json if NOT uploading FormData
     ...(!isFormData && { "Content-Type": "application/json" }),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...headers,
   };
 
@@ -26,6 +23,7 @@ async function request(path, { method = "GET", body, headers, auth = true } = {}
 
   const response = await fetch(targetUrl, {
     method,
+    credentials: "include",
     headers: defaultHeaders,
     // Don't JSON.stringify if body is FormData
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,

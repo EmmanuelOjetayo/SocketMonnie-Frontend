@@ -27,8 +27,8 @@ export function VerifyOtp() {
         otp: code,
       });
 
-      // Authenticate with JWT returned from verification backend
-      authenticate(response.data.token, response.data.user);
+      // Authenticate — httpOnly cookie is set by backend
+      authenticate(response.data.user);
       toast.success(response.message || "Account verified!");
 
       // Navigate straight to KYC

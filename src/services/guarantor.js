@@ -50,12 +50,7 @@ export async function getGuarantorByLoan(loanId) {
  * GET /api/guarantors/verify/:token
  */
 export async function getGuarantorRequestByToken(token) {
-  return apiClient.get(
-    `/guarantors/verify/${token}`,
-    {
-      auth: false,
-    }
-  );
+  return apiClient.get(`/guarantors/verify/${token}`);
 }
 
 /**

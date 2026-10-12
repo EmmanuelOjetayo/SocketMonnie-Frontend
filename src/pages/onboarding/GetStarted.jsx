@@ -37,7 +37,7 @@ export function GetStarted({ tab = "new" }) {
   
   // Step 0 = Splash Screen, 1-3 = Progressive Walkthrough Steps
   const [currentStep, setCurrentStep] = useState(0);
-
+  
   // Auto transition from Splash Screen (Step 0) to Step 1 after 2 seconds
   useEffect(() => {
     if (currentStep === 0) {
@@ -85,7 +85,7 @@ export function GetStarted({ tab = "new" }) {
   const stepData = ONBOARDING_STEPS[currentStep - 1];
 
   return (
-    <div className="flex h-screen w-full flex-col justify-between bg-[#F8F9FB] px-6 pt-12 pb-8 select-none">
+    <div className="flex h-screen w-full flex-col justify-between bg-[#F8F9FB] px-6 pt-8 pb-6 select-none">
       
       {/* Top Header: Centered Logo & Right Skip Button with distinct top & horizontal spacing */}
       <div className="relative flex items-center justify-between w-full max-w-sm mx-auto mb-6">
@@ -95,7 +95,7 @@ export function GetStarted({ tab = "new" }) {
         <img 
           src={logo} 
           alt="Socket Logo" 
-          className="h-9 w-auto object-contain" 
+          className="h-8 w-auto object-contain" 
         />
 
         <button
@@ -108,10 +108,10 @@ export function GetStarted({ tab = "new" }) {
       </div>
 
       {/* Main Content Body */}
-      <div className="flex flex-col items-center text-center my-auto w-full max-w-sm mx-auto space-y-8">
+      <div className="flex flex-col items-center text-center my-auto w-full max-w-sm mx-auto space-y-6">
         
         {/* Main Banner Illustration with added top/bottom margin gap */}
-        <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden flex items-center justify-center bg-transparent my-2">
+        <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden flex items-center justify-center bg-transparent my-2">
           <img
             src={stepData.image}
             alt={stepData.title}
@@ -120,8 +120,8 @@ export function GetStarted({ tab = "new" }) {
         </div>
 
         {/* Title & Subtitle */}
-        <div className="space-y-3 px-2 pt-2">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <div className="space-y-2 px-2 pt-2">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">
             {stepData.title}
           </h1>
           <p className="text-sm font-normal text-gray-800 leading-relaxed max-w-[280px] mx-auto">
@@ -130,35 +130,35 @@ export function GetStarted({ tab = "new" }) {
         </div>
 
         {/* Step Indicator Dots */}
-        <div className="flex items-center justify-center gap-2 pt-4">
+        <div className="flex items-center justify-center gap-2 pt-2">
           <div
-            className={`h-2.5 rounded-full transition-all duration-300 ${
-              currentStep === 1 ? "w-10 bg-[#3B62EC]" : "w-2.5 bg-gray-200"
+            className={`h-2 rounded-full transition-all duration-300 ${
+              currentStep === 1 ? "w-8 bg-[#3B62EC]" : "w-2 bg-gray-200"
             }`}
           />
           <div
-            className={`h-2.5 rounded-full transition-all duration-300 ${
-              currentStep === 2 ? "w-10 bg-[#3B62EC]" : "w-2.5 bg-gray-200"
+            className={`h-2 rounded-full transition-all duration-300 ${
+              currentStep === 2 ? "w-8 bg-[#3B62EC]" : "w-2 bg-gray-200"
             }`}
           />
           <div
-            className={`h-2.5 rounded-full transition-all duration-300 ${
-              currentStep === 3 ? "w-10 bg-[#3B62EC]" : "w-2.5 bg-gray-200"
+            className={`h-2 rounded-full transition-all duration-300 ${
+              currentStep === 3 ? "w-8 bg-[#3B62EC]" : "w-2 bg-gray-200"
             }`}
           />
-          <div className="h-2.5 w-2.5 rounded-full bg-gray-200" />
+          <div className="h-2 w-2 rounded-full bg-gray-200" />
         </div>
-      </div>
 
-      {/* Bottom Action Button */}
-      <div className="w-full max-w-sm mx-auto pt-4">
-        <button
-          type="button"
-          onClick={handleNext}
-          className="w-full py-4 rounded-2xl bg-[#3B62EC] text-white font-bold text-base shadow-md hover:bg-[#3052D1] active:scale-[0.98] transition-all cursor-pointer"
-        >
-          {stepData.buttonText}
-        </button>
+        {/* Bottom Action Button */}
+        <div className="w-full max-w-sm mx-auto pt-4">
+          <button
+            type="button"
+            onClick={handleNext}
+            className="w-full py-3 rounded-2xl bg-[#3B62EC] text-white font-bold text-base shadow-md hover:bg-[#3052D1] active:scale-[0.98] transition-all cursor-pointer"
+          >
+            {stepData.buttonText}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -5,29 +5,17 @@ import {
   X,
   Check,
   Ban,
-  UserCheck,
+  Users,
+  TrendingUp,
   FileText,
   Building2,
   Banknote,
-  TrendingUp,
-  Award,
-  Shield,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
   Phone,
   Mail,
   Calendar,
-  Hash,
-  ExternalLink,
-  Clock,
-  AlertTriangle,
-  Copy,
-  CheckCheck,
-  ChevronLeft,
-  ChevronRight,
-  Bell,
-  Sparkles,
+  ArrowUpRight,
+  ShieldCheck,
+  Award,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -35,230 +23,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { useAsync } from "@/hooks/useAsync";
-import {
-  getMembers,
-  suspendMember,
-  getMemberById,
-  approveKYC,
-  rejectKYC,
-  activateMember,
-} from "@/services/adminService";
+import { markAllNotificationsRead } from "@/services/notifications";
+import { getMembers, suspendMember, getMemberById, approveKYC, rejectKYC, activateMember } from "@/services/adminService";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import toast from "react-hot-toast";
 import { formatNaira, formatDate, getScoreRating } from "@/utils/format";
-
-// ─── CUSTOM DEBOUNCE HOOK ────────────────────────────────
-function useDebounce(value, delay = 400) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
-
-// ─── TOP HEADER COMPONENT ────────────────────────────────
-export function AdminHeader({ onSearch }) {
-  const [query, setQuery] = useState("");
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && onSearch) {
-      onSearch(query);
-    }
-  };
-
-  return (
-    <header
-      className="sticky top-0 z-30 flex h-16 w-full items-center justify-between px-5 text-white shadow-md rounded-b-[24px]"
-      style={{
-        background: "linear-gradient(180deg, #1d2d6d 0%, #131e49 60%, #090f24 100%)",
-      }}
-    >
-      <div className="flex items-center gap-3 flex-1 max-w-lg">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-2.5 size-4 text-[#dee3f9]/70" />
-          <input
-            type="text"
-            placeholder="Search member, loan #, phone... (Press Enter)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-full rounded-xl border border-[#bdc8f3]/30 bg-white/10 py-2 pl-9 pr-4 text-xs font-medium text-white placeholder:text-[#dee3f9]/60 backdrop-blur-md transition-all focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-300">
-          <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-          System Active
-        </div>
-
-        <button className="relative rounded-full p-2 text-[#dee3f9] hover:bg-white/10 transition-colors">
-          <Bell className="size-4" />
-          <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-400" />
-        </button>
-      </div>
-    </header>
-  );
-}
-
-// ─── BADGE UTILITIES ─────────────────────────────────────
-function kycBadgeVariant(status) {
-  if (status === "approved") return "success";
-  if (status === "rejected") return "danger";
-  if (status === "pending_review") return "warning";
-  return "outline";
-}
-
-function TierBadge({ tier }) {
-  const colors = {
-    Bronze: "bg-amber-100 text-amber-800 border-amber-300",
-    Silver: "bg-slate-100 text-slate-800 border-slate-300",
-    Gold: "bg-yellow-100 text-yellow-800 border-yellow-400",
-    Platinum: "bg-blue-100 text-blue-800 border-blue-400",
-  };
-  const cls = colors[tier] || colors.Bronze;
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${cls}`}>
-      <Award className="w-3 h-3" />
-      {tier || "Bronze"}
-    </span>
-  );
-}
-
-// ─── KYC LIGHTBOX PREVIEW ─────────────────────────────────
-function KycDocumentPreview({ doc, onClose }) {
-  if (!doc) return null;
-
-  const docUrl = typeof doc === "string" ? doc : (doc.documentUrl || doc.fileUrl || doc.url || doc.path);
-  const docType = typeof doc === "object" ? (doc.type || doc.name || "KYC Document") : "KYC Document";
-
-  if (!docUrl) return null;
-
-  const isPdf = /\.pdf($|\?)/i.test(docUrl);
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div className="relative max-w-3xl max-h-[90vh] w-full bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#dee3f9] bg-[#dee3f9]/30">
-          <span className="text-xs font-bold text-[#090f24] flex items-center gap-2 uppercase tracking-wider">
-            <FileText className="w-4 h-4 text-emerald-600" />
-            {docType.replace("_", " ")}
-          </span>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 transition-colors">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        <div className="p-4 flex-1 flex items-center justify-center bg-slate-900 min-h-[300px] max-h-[calc(90vh-60px)] overflow-auto">
-          {isPdf ? (
-            <iframe src={docUrl} className="w-full h-[70vh] rounded-xl bg-white" title="KYC Document" />
-          ) : (
-            <img 
-              src={docUrl} 
-              alt="KYC Document" 
-              className="max-w-full max-h-[70vh] rounded-xl shadow-md object-contain"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.style.display = 'none';
-                e.target.parentNode.innerHTML = `<div class="text-center p-6 text-white"><p class="mb-2">Unable to load image preview.</p><a href="${docUrl}" target="_blank" rel="noreferrer" class="px-4 py-2 bg-[#131e49] rounded-xl text-xs font-bold text-white inline-block">Open Original File</a></div>`;
-              }} 
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── MINI STAT CARD ──────────────────────────────────────
-function MiniStat({ icon: Icon, label, value, color = "brand" }) {
-  return (
-    <div className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-xs">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-semibold text-gray-500">{label}</span>
-        {Icon && <Icon className="w-4 h-4 text-emerald-600" />}
-      </div>
-      <p className="text-base font-extrabold text-[#090f24]">{value ?? "—"}</p>
-    </div>
-  );
-}
-
-// ─── INFO ROW COMPONENT ──────────────────────────────────
-function InfoRow({ icon: Icon, label, value, copyable }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    if (value && copyable) {
-      navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      {Icon && <Icon className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />}
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-gray-500 font-medium">{label}</p>
-        <p className="text-xs font-semibold text-[#090f24] truncate flex items-center gap-1.5">
-          {value || "—"}
-          {copyable && value && (
-            <button onClick={handleCopy} className="text-gray-400 hover:text-[#131e49] transition-colors" title="Copy">
-              {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          )}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── SECTION TITLE ───────────────────────────────────────
-function SectionTitle({ icon: Icon, title, action }) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-xs font-extrabold text-[#090f24] flex items-center gap-2 uppercase tracking-wider">
-        {Icon && <Icon className="w-4 h-4 text-emerald-600" />}
-        {title}
-      </h3>
-      {action}
-    </div>
-  );
-}
-
-// ─── TIMELINE ITEM ───────────────────────────────────────
-function TimelineItem({ icon: Icon, title, subtitle, date, color = "brand" }) {
-  const dotColors = {
-    brand: "bg-[#131e49]",
-    success: "bg-emerald-500",
-    danger: "bg-rose-500",
-    slate: "bg-slate-400",
-  };
-
-  return (
-    <div className="flex gap-3 pb-3 relative">
-      <div className="flex flex-col items-center">
-        <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${dotColors[color] || dotColors.slate} ring-2 ring-white`} />
-        <div className="w-px flex-1 bg-[#dee3f9] mt-1" />
-      </div>
-      <div className="flex-1 pb-1">
-        <p className="text-xs font-bold text-[#090f24] flex items-center gap-1.5">
-          {Icon && <Icon className="w-3.5 h-3.5 text-gray-400" />}
-          {title}
-        </p>
-        {subtitle && <p className="text-[11px] text-gray-500 mt-0.5">{subtitle}</p>}
-        {date && <p className="text-[10px] text-gray-400 mt-0.5">{formatDate(date, "MMM dd, yyyy h:mm a")}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN ADMIN MEMBERS COMPONENT
-// ═══════════════════════════════════════════════════════════
+import { ROUTES } from "@/constants/routes";
+import { cn } from "@/utils/cn";
 
 export function AdminMembers() {
   const [search, setSearch] = useState("");
@@ -266,11 +37,12 @@ export function AdminMembers() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useRef(search).current;
+  // Re-derive on each render to pick up latest search value
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [search, statusFilter]);
 
   // Data Fetching
   const { data, isLoading, refetch } = useAsync(
@@ -284,7 +56,7 @@ export function AdminMembers() {
   const totalCount = pagination.total || members.length;
   const totalPages = pagination.pages || Math.ceil(totalCount / limit) || 1;
 
-  // Drawer / Detail State
+  // Detail State
   const [selectedMember, setSelectedMember] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -318,7 +90,7 @@ export function AdminMembers() {
       }
     } catch (err) {
       if (currentReq === activeRequestId.current) {
-        toast.error(err?.response?.data?.message || err?.data?.message || "Failed to load member details");
+        console.error("Failed to load member details:", err);
       }
     } finally {
       if (currentReq === activeRequestId.current) {
@@ -334,7 +106,7 @@ export function AdminMembers() {
       const res = await getMemberById(memberId);
       setDetailData(res?.data || res);
     } catch (err) {
-      toast.error("Could not sync updated details");
+      console.error("Could not sync updated details:", err);
     }
   }
 
@@ -347,12 +119,12 @@ export function AdminMembers() {
     setIsSuspending(true);
     try {
       await suspendMember(userId, "Admin suspension");
-      toast.success("Member suspended successfully");
+      console.log("Member suspended successfully");
       setSuspendTarget(null);
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.data?.message || "Failed to suspend member");
+      console.error("Failed to suspend member:", error);
     } finally {
       setIsSuspending(false);
     }
@@ -362,11 +134,11 @@ export function AdminMembers() {
     setIsActivating(true);
     try {
       await activateMember(userId);
-      toast.success("Member activated successfully");
+      console.log("Member activated successfully");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.data?.message || "Failed to activate member");
+      console.error("Failed to activate member:", error);
     } finally {
       setIsActivating(false);
     }
@@ -376,11 +148,11 @@ export function AdminMembers() {
     setIsApprovingKyc(true);
     try {
       await approveKYC(userId);
-      toast.success("KYC submission approved");
+      console.log("KYC approved");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.data?.message || "Failed to approve KYC");
+      console.error("Failed to approve KYC:", error);
     } finally {
       setIsApprovingKyc(false);
     }
@@ -388,19 +160,19 @@ export function AdminMembers() {
 
   async function handleKycReject(userId) {
     if (!kycRejectReason.trim()) {
-      toast.error("Rejection reason is required");
+      console.error("Rejection reason is required");
       return;
     }
     setIsRejectingKyc(true);
     try {
       await rejectKYC(userId, kycRejectReason);
-      toast.success("KYC submission rejected");
+      console.log("KYC rejected");
       setKycRejectTarget(null);
       setKycRejectReason("");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.data?.message || "Failed to reject KYC");
+      console.error("Failed to reject KYC:", error);
     } finally {
       setIsRejectingKyc(false);
     }
@@ -417,25 +189,31 @@ export function AdminMembers() {
   const kycRejectionReason = member.kycRejectionReason;
 
   const netSavings = (stats.totalSavings || 0) - (stats.totalWithdrawn || 0);
-  const eligibleLoan = member.eligibleLoanAmount !== undefined 
-    ? member.eligibleLoanAmount 
-    : netSavings * (member.loanCount === 0 ? 0.7 : member.loanCount === 1 ? 1.0 : 1.5);
+  const eligibleLoan =
+    member.eligibleLoanAmount !== undefined
+      ? member.eligibleLoanAmount
+      : netSavings * (member.loanCount === 0 ? 0.7 : member.loanCount === 1 ? 1.0 : 1.5);
+
+  // Custom badge variant function (replacing kycBadgeVariant utility)
+  function kycBadgeVariant(status) {
+    if (status === "approved") return "success";
+    if (status === "rejected") return "danger";
+    if (status === "pending_review") return "warning";
+    return "outline";
+  }
 
   return (
     <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
       {/* ── TOP HEADER ───────────────────────────────────── */}
-      <AdminHeader 
-        onSearch={(q) => setSearch(q)} 
+      <TopHeader
+        onSearch={(q) => setSearch(q)}
       />
 
       <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
-        
         {/* Members Operations Hero Banner */}
         <div
           className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{
-            background: "linear-gradient(135deg, #1d2d6d 0%, #131e49 50%, #090f24 100%)",
-          }}
+          style={{ background: "linear-gradient(135deg, #5B76E1 0%, #32417B 50%, #090f24 100%)" }}
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
@@ -462,7 +240,7 @@ export function AdminMembers() {
             <Input
               placeholder="Search by name, email, phone, or code..."
               icon={Search}
-              className="rounded-2xl border-[#bdc8f3]/40 bg-white text-xs shadow-sm focus:ring-[#131e49]/20"
+              className="rounded-2xl border-[#bdc8f3]/30 bg-white text-xs shadow-sm focus:ring-[#131e49]/20"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -516,16 +294,12 @@ export function AdminMembers() {
                           <p className="text-gray-500 text-[11px]">{m.phone || "—"}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <TierBadge tier={m.tier || "Bronze"} />
+                          <Badge variant={m.tier ? "brand" : "outline"} className="text-[10px] font-bold">
+                            {m.tier || "Bronze"}
+                          </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            rating.tier === "elite" ? "bg-yellow-100 text-yellow-800" :
-                            rating.tier === "excellent" ? "bg-emerald-100 text-emerald-800" :
-                            rating.tier === "good" ? "bg-blue-100 text-blue-800" :
-                            rating.tier === "fair" ? "bg-amber-100 text-amber-800" :
-                            "bg-rose-100 text-rose-800"
-                          }`}>
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${rating.tier === "elite" ? "bg-yellow-100 text-yellow-800" : rating.tier === "excellent" ? "bg-emerald-100 text-emerald-800" : rating.tier === "good" ? "bg-blue-100 text-blue-800" : rating.tier === "fair" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`>
                             {m.socketScore || 0} — {rating.label}
                           </span>
                         </td>
@@ -594,7 +368,7 @@ export function AdminMembers() {
                   <div>
                     <h2 className="text-base font-extrabold text-[#090f24] flex items-center gap-2">
                       {member.fullName}
-                      <TierBadge tier={member.tier} />
+                      <Badge tier={member.tier} />
                     </h2>
                     <p className="text-xs text-gray-500">{member.email}</p>
                   </div>
@@ -663,64 +437,88 @@ export function AdminMembers() {
 
                     {/* Stat Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      <MiniStat label="Total Savings" value={formatNaira(stats.totalSavings || 0)} icon={Banknote} color="success" />
-                      <MiniStat label="Net Balance" value={formatNaira(netSavings)} icon={TrendingUp} color="brand" />
-                      <MiniStat label="Eligible Loan" value={formatNaira(eligibleLoan)} icon={Building2} color="purple" />
-                      <MiniStat label="Active Loans" value={stats.activeLoansCount || 0} icon={FileText} color="amber" />
+                      <span className="text-xs font-medium text-gray-500">Total Savings</span>
+                      <span className="text-base font-extrabold text-[#090f24]">{formatNaira(stats.totalSavings || 0)}</span>
+                      <span className="text-xs font-medium text-gray-500">Net Balance</span>
+                      <span className="text-base font-extrabold text-[#090f24]">{formatNaira(netSavings)}</span>
+                      <span className="text-xs font-medium text-gray-500">Eligible Loan</span>
+                      <span className="text-base font-extrabold text-[#090f24]">{formatNaira(eligibleLoan)}</span>
+                      <span className="text-xs font-medium text-gray-500">Active Loans</span>
+                      <span className="text-base font-extrabold text-[#090f24]">{stats.activeLoansCount || 0}</span>
                     </div>
 
                     {/* Member Profile & Bank Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#dee3f9]/15 p-4 rounded-2xl border border-[#bdc8f3]/30">
                       <div>
-                        <SectionTitle icon={Users} title="Member Profile" />
-                        <InfoRow icon={Phone} label="Phone Number" value={member.phone} copyable />
-                        <InfoRow icon={Mail} label="Email Address" value={member.email} copyable />
-                        <InfoRow icon={Calendar} label="Member Since" value={formatDate(member.createdAt, "PPP")} />
-                        <InfoRow icon={Hash} label="User ID" value={member._id || member.id} copyable />
+                        <div className="text-xs font-medium text-gray-500">Phone Number</div>
+                        <div className="font-bold text-[#090f24]">{member.phone}</div>
+                        <div className="text-xs font-medium text-gray-500">Email Address</div>
+                        <div className="font-bold text-[#090f24] truncate">{member.email}</div>
+                        <div className="text-xs font-medium text-gray-500">Member Since</div>
+                        <div className="font-bold text-[#090f24]">{formatDate(member.createdAt, "PPP")}</div>
+                        <div className="text-xs font-medium text-gray-500">User ID</div>
+                        <div className="font-bold text-[#090f24]" copyable>{member._id || member.id}</div>
                       </div>
                       <div>
-                        <SectionTitle icon={Building2} title="Disbursement Settlement" />
-                        <InfoRow icon={Building2} label="Bank" value={bankInfo.bankName} />
-                        <InfoRow icon={Hash} label="Account No." value={bankInfo.accountNumber} copyable />
-                        <InfoRow icon={Users} label="Account Name" value={bankInfo.accountName} />
-                        <InfoRow icon={Shield} label="BVN" value={member.bvn ? `••••${member.bvn.slice(-4)}` : "Not Provided"} />
+                        <div className="text-xs font-medium text-gray-500">Bank</div>
+                        <div className="font-bold text-[#090f24]">{bankInfo.bankName}</div>
+                        <div className="text-xs font-medium text-gray-500">Account No.</div>
+                        <div className="font-bold text-[#090f24] copyable">{bankInfo.accountNumber}</div>
+                        <div className="text-xs font-medium text-gray-500">Account Name</div>
+                        <div className="font-bold text-[#090f24]">{bankInfo.accountName}</div>
+                        <div className="text-xs font-medium text-gray-500">BVN</div>
+                        <div className="font-bold text-[#090f24]">
+                          {member.bvn ? `••••${member.bvn.slice(-4)}` : "Not Provided"}
+                        </div>
                       </div>
                     </div>
 
                     {/* Socket Score Breakdown */}
                     <div className="bg-white p-4 rounded-2xl border border-[#bdc8f3]/40 shadow-xs space-y-3">
-                      <SectionTitle icon={Award} title="Socket Credit Score Breakdown" />
                       <div className="flex items-center gap-6">
                         <div className="flex flex-col items-center">
-                          <ProgressRing progress={((member.socketScore || 0) / 850) * 100} size={80} strokeWidth={8}>
-                            <span className="text-lg font-black text-[#090f24]">{member.socketScore || 0}</span>
+                          <ProgressRing
+                            progress={Math.min(100, Math.max(0, Number(member.socketScore) || 0))}
+                            size={80}
+                            strokeWidth={8}
+                          >
+                            <span className="text-lg font-black text-[#090f24]">
+                              {member.socketScore || 0}
+                            </span>
                           </ProgressRing>
                           <span className="text-xs font-bold mt-1 text-gray-500">{scoreRating.label}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 flex-1 text-xs">
                           <div>
                             <span className="text-gray-500">Savings Habit</span>
-                            <p className="font-semibold text-[#090f24]">{scoreBreakdown.savingsConsistency || 0} / 250</p>
+                            <p className="font-semibold text-[#090f24]">
+                              {scoreBreakdown.savingsConsistency || 0} / 250
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-500">Repayment Metric</span>
-                            <p className="font-semibold text-[#090f24]">{scoreBreakdown.repaymentHistory || 0} / 350</p>
+                            <p className="font-semibold text-[#090f24]">
+                              {scoreBreakdown.repaymentHistory || 0} / 350
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-500">Tenure Rating</span>
-                            <p className="font-semibold text-[#090f24]">{scoreBreakdown.accountAge || 0} / 150</p>
+                            <p className="font-semibold text-[#090f24]">
+                              {scoreBreakdown.accountAge || 0} / 150
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-500">Guarantor Trust</span>
-                            <p className="font-semibold text-[#090f24]">{scoreBreakdown.guarantorTrust || 0} / 100</p>
+                            <p className="font-semibold text-[#090f24]">
+                              {scoreBreakdown.guarantorTrust || 0} / 100
+                            </p>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* KYC Section (Handles single objects, strings, arrays, or documentUrl) */}
+                    {/* KYC Section */}
                     <div className="bg-white p-4 rounded-2xl border border-[#bdc8f3]/40 shadow-xs">
-                      <SectionTitle icon={Shield} title="KYC Verification" />
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xs text-gray-500 font-medium">Verification Status</span>
                         <Badge variant={kycBadgeVariant(kycStatus)}>
@@ -780,22 +578,120 @@ export function AdminMembers() {
                     </div>
 
                     {/* Score Timeline */}
-                    {scoreHistory.length > 0 && (
-                      <div className="bg-white p-4 rounded-2xl border border-[#bdc8f3]/40 shadow-xs">
-                        <SectionTitle icon={Clock} title="Credit Score Audit" />
-                        <div className="mt-3 pl-2">
-                          {scoreHistory.map((item, idx) => (
-                            <TimelineItem
-                              key={idx}
-                              title={`${item.change > 0 ? "+" : ""}${item.change} Points`}
-                              subtitle={item.reason}
-                              date={item.createdAt}
-                              color={item.change >= 0 ? "success" : "danger"}
-                            />
-                          ))}
+                    {scoreHistory.length > 0 && (() => {
+                      const monthlyScores = scoreHistory.reduce((acc, item) => {
+                        const year = item.period?.year;
+                        const month = item.period?.month;
+
+                        if (!year || !month) return acc;
+
+                        const key = `${year}-${String(month).padStart(2, "0")}`;
+
+                        if (!acc[key]) {
+                          acc[key] = {
+                            year,
+                            month,
+                            overallScores: [],
+                            breakdown: {
+                              savingsConsistency: 0,
+                              savingsGrowth: 0,
+                              loanRepayment: 0,
+                              withdrawalBehaviour: 0,
+                              profileCompletion: 0,
+                              communityTrust: 0,
+                            },
+                          };
+                        }
+
+                        acc[key].overallScores.push(Number(item.overallScore) || 0);
+
+                        Object.keys(acc[key].breakdown).forEach((component) => {
+                          acc[key].breakdown[component] = Math.max(
+                            acc[key].breakdown[component],
+                            Number(item.breakdown?.[component]) || 0
+                          );
+                        });
+
+                        return acc;
+                      }, {});
+
+                      const monthlyHistory = Object.values(monthlyScores)
+                        .sort((a, b) => {
+                          if (a.year !== b.year) return b.year - a.year;
+                          return b.month - a.month;
+                        })
+                        .map((item) => ({
+                          ...item,
+                          overallScore: Math.max(...item.overallScores),
+                        }));
+
+                      const formatMonth = (year, month) =>
+                        new Date(year, month - 1).toLocaleDateString("en-US", {
+                          month: "long",
+                          year: "numeric",
+                        });
+
+                      return (
+                        <div className="bg-white p-4 rounded-2xl border border-[#bdc8f3]/40 shadow-xs">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold text-[#090f24] uppercase tracking-wider">Monthly Socket Score</span>
+                          </div>
+
+                          <div className="space-y-4 mt-3">
+                            {monthlyHistory.map((item) => {
+                              const rating = getScoreRating(item.overallScore);
+
+                              return (
+                                <div
+                                  key={`${item.year}-${item.month}`}
+                                  className="rounded-2xl border border-[#bdc8f3]/30 bg-[#dee3f9]/10 p-4"
+                                >
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                      <p className="text-sm font-extrabold text-[#090f24]">
+                                        {formatMonth(item.year, item.month)}
+                                      </p>
+                                      <p className="text-[10px] text-gray-500">
+                                        Monthly aggregate
+                                      </p>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <p className="text-2xl font-black text-[#131e49]">
+                                        {item.overallScore}
+                                      </p>
+                                      <span className="text-[10px] font-bold text-gray-500">
+                                        {rating.label}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    <span className="text-xs font-bold text-[#090f24]">Savings Consistency</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.savingsConsistency}</p>
+
+                                    <span className="text-xs font-bold text-[#090f24]">Savings Growth</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.savingsGrowth}</p>
+
+                                    <span className="text-xs font-bold text-[#090f24]">Loan Repayment</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.loanRepayment}</p>
+
+                                    <span className="text-xs font-bold text-[#090f24]">Withdrawal Behaviour</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.withdrawalBehaviour}</p>
+
+                                    <span className="text-xs font-bold text-[#090f24]">Profile Completion</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.profileCompletion}</p>
+
+                                    <span className="text-xs font-bold text-[#090f24]">Community Trust</span>
+                                    <p className="text-xs font-medium text-[#090f24]">{item.breakdown.communityTrust}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </>
                 )}
               </div>
@@ -805,10 +701,7 @@ export function AdminMembers() {
 
         {/* ── DOCUMENT PREVIEW LIGHTBOX ──────────────────── */}
         {previewDoc && (
-          <KycDocumentPreview
-            doc={previewDoc}
-            onClose={() => setPreviewDoc(null)}
-          />
+          <KycDocumentPreview doc={previewDoc} onClose={() => setPreviewDoc(null)} />
         )}
 
         {/* ── SUSPEND CONFIRMATION DIALOG ────────────────── */}

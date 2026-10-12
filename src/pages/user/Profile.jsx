@@ -16,6 +16,7 @@ import {
   Bell,
   Eye,
   FileText,
+  Copy,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +45,7 @@ export function Profile() {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null);
+  const [referralLink, setReferralLink] = useState("");
 
   // Stats Data
   const { data: savingsData } = useAsync(getSavingsSummary, []);
@@ -57,6 +59,12 @@ export function Profile() {
   const regNumber = user?.referralCode || user?._id?.substring(0, 8) || "N/A";
   const greeting = getGreeting();
   const kycStatus = user?.kycStatus || "unverified";
+
+  useEffect(() => {
+    if (user?.referralCode) {
+      setReferralLink(`${window.location.origin}${ROUTES.REGISTER}?ref=${encodeURIComponent(user.referralCode)}`);
+    }
+  }, [user?.referralCode]);
 
   // --- Form States ---
   // 1. Personal Info
@@ -232,6 +240,19 @@ export function Profile() {
     }
   }
 
+  async function handleCopyReferralLink() {
+    if (!referralLink) {
+      toast.error("Referral link is not available yet");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      toast.success("Referral link copied");
+    } catch {
+      toast.error("Unable to copy referral link");
+    }
+  }
+
   const MENU_ITEMS = [
     {
       icon: User,
@@ -336,6 +357,24 @@ export function Profile() {
             <p className="text-xs font-bold text-gray-900 mt-0.5">{user?.referralCode || "N/A"}</p>
           </Card>
         </div>
+
+        <Card className="p-4 rounded-2xl bg-white shadow-sm border border-gray-100">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-gray-900">Your referral link</p>
+              <p className="text-xs text-gray-500 mt-1 break-all">{referralLink || "Referral code unavailable"}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyReferralLink}
+              title="Copy referral link"
+              aria-label="Copy referral link"
+              className="shrink-0 p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+            >
+              <Copy className="size-4" />
+            </button>
+          </div>
+        </Card>
 
         {/* Navigation List Cards */}
         <div className="space-y-3">

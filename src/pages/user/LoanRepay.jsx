@@ -8,7 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { getActiveLoan, getRepaymentSchedule } from "@/services/loans";
 import { initiateLoanRepayment, verifyLoanRepayment } from "@/services/payments";
-import { calculatePaystackFee } from "@/utils/paystackFee";
+import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
+import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
 import { formatNaira, formatDate } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 
@@ -39,7 +40,7 @@ export function LoanRepay() {
   const totalRepayable = Number(loan.totalRepayable || 0);
   const progress = totalRepayable ? Math.min(100, Math.round((paidAmount / totalRepayable) * 100)) : 0;
   const paymentAmount = Number(amount) || 0;
-  const { fee, totalPayable } = calculatePaystackFee(paymentAmount);
+  const { fee, totalPayable } = calculateFlutterwaveFee(paymentAmount);
 
   async function handleContinue() {
     if (!paymentAmount || paymentAmount <= 0) return toast.error("Please enter a valid repayment amount.");
@@ -52,30 +53,38 @@ export function LoanRepay() {
       console.log("Payload", payload)
       const publicKey = payload.publicKey || payload.public_key;
       const reference = payload.reference || payload.tx_ref || payload.txRef;
-      if (!window.PaystackPop || !publicKey || !reference) throw new Error("Unable to start Paystack checkout.");
+      if (!publicKey || !reference) throw new Error("Unable to start Flutterwave checkout.");
 
-      const handler = window.PaystackPop.setup({
-        key: publicKey,
-        email: payload.customer?.email,
-        amount: payload.amountKobo || Math.round(totalPayable * 100),
+      // Open Flutterwave Window Checkout (Inline v3).
+      const response = await payWithFlutterwave({
+        publicKey,
+        tx_ref: reference,
+        amount: Number(payload.amount || totalPayable),
         currency: payload.currency || "NGN",
-        ref: reference,
+        customer: payload.customer || {},
+        meta: payload.meta,
         metadata: payload.metadata,
-        callback: (response) => {
-  console.log("🔥 PAYSTACK CALLBACK FIRED");
-  console.log("PAYSTACK CALLBACK RESPONSE:", response);
+        customizations: payload.customizations,
+        // Server-owned split id — used only in this checkout request.
+        subaccount_id: payload.subaccount_id,
+      });
 
-  const responseReference = response?.reference || reference;
+      if (response?.status && response.status !== "successful") {
+        toast.error(`Payment ${response.status}. Please try again.`);
+        return;
+      }
 
-  (async () => {
-    try {
-      console.log("🔥 ABOUT TO VERIFY WITH BACKEND");
+      const responseReference = response?.tx_ref || response?.reference || reference;
+      const transactionId = response?.transaction_id || response?.id || null;
 
+      try {
+      // Backend performs authoritative verification — never trust frontend.
       const verification = await verifyLoanRepayment({
         loanId: loan._id,
         reference: responseReference,
-        transactionId: response?.transaction || response?.trx || response?.transactionId, 
-        tx_ref:response?.trxref, // backward-compat field name during rollout
+        tx_ref: responseReference,
+        transaction_id: transactionId,
+        transactionId: transactionId,
       });
 
       if (!verification?.success) {
@@ -95,25 +104,20 @@ export function LoanRepay() {
           date: new Date().toISOString(),
         },
       });
+      } catch (error) {
+        console.error("Loan repayment verification error:", error);
+        toast.error(
+          error?.data?.message ||
+          error?.message ||
+          "Verification failed."
+        );
+      }
     } catch (error) {
-      console.error("🔥 VERIFY CALLBACK ERROR:", error);
-      console.error("🔥 STATUS:", error?.status);
-      console.error("🔥 DATA:", error?.data);
-
-      toast.error(
-        error?.data?.message ||
-        error?.message ||
-        "Verification failed."
-      );
-    }
-  })();
-},
-        onClose: () => {},
-      });
-
-      handler.openIframe();
-    } catch (error) {
-      toast.error(error?.data?.message || error?.message || "Loan repayment failed.");
+      if (isPaymentWindowClosed(error)) {
+        toast.error("Payment window closed.");
+      } else {
+        toast.error(error?.data?.message || error?.message || "Loan repayment failed.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -155,10 +159,10 @@ export function LoanRepay() {
           <label className="block text-xs font-extrabold">Enter Amount</label>
           <div className="flex items-center gap-2"><div className="flex h-12 w-12 items-center justify-center rounded-xl border border-blue-600 bg-blue-50/50 text-lg font-extrabold text-indigo-700">₦</div><input type="number" min="1" max={loan.remainingBalance} placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} className="h-12 w-full rounded-xl border border-blue-600 px-4 text-base font-extrabold outline-none focus:ring-1 focus:ring-blue-600" /></div>
           <div className="grid grid-cols-4 gap-2 pt-1">{QUICK_AMOUNTS.map((quickAmount) => <button key={quickAmount} type="button" onClick={() => setAmount(String(Math.min(quickAmount, loan.remainingBalance)))} className="rounded-lg border border-gray-200 bg-gray-50/50 py-2 text-[10px] font-bold text-gray-700 hover:border-indigo-200 hover:bg-indigo-50">{formatNaira(quickAmount)}</button>)}</div>
-          <div className="space-y-1 rounded-xl bg-gray-50 p-3 text-xs"><div className="flex justify-between"><span className="text-gray-500">Repayment amount</span><strong>{formatNaira(paymentAmount)}</strong></div><div className="flex justify-between"><span className="text-gray-500">Paystack fee</span><strong>{formatNaira(fee)}</strong></div><div className="flex justify-between border-t border-gray-200 pt-1 font-bold"><span>Total charged</span><strong className="text-emerald-600">{formatNaira(totalPayable)}</strong></div></div>
+          <div className="space-y-1 rounded-xl bg-gray-50 p-3 text-xs"><div className="flex justify-between"><span className="text-gray-500">Repayment amount</span><strong>{formatNaira(paymentAmount)}</strong></div><div className="flex justify-between"><span className="text-gray-500">Processing fee</span><strong>{formatNaira(fee)}</strong></div><div className="flex justify-between border-t border-gray-200 pt-1 font-bold"><span>Total charged</span><strong className="text-emerald-600">{formatNaira(totalPayable)}</strong></div></div>
         </section>
         <section><h3 className="mb-2 text-sm font-extrabold">Upcoming Payment</h3><div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm">{nextPayment ? <div className="flex items-center justify-between gap-3"><div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-600 text-white"><span className="text-[10px]">DUE</span><span className="text-sm font-bold">{formatDate(nextPayment.dueDate, "dd MMM")}</span><span className="text-[9px]">{formatDate(nextPayment.dueDate, "yyyy")}</span></div><div className="grid flex-1 grid-cols-3 gap-1 divide-x divide-emerald-200/60 text-center"><LoanValue label="Amount" value={formatNaira(nextPayment.amountDue)} /><LoanValue label="Principal" value={formatNaira(nextPayment.amountDue)} /><LoanValue label="Interest" value={formatNaira(0)} /></div></div> : <p className="text-xs font-semibold text-emerald-700">No upcoming payment scheduled.</p>}</div></section>
-        <section><h3 className="mb-2 text-sm font-extrabold">Payment Method</h3><div className="space-y-2"><PaymentMethod method="bank" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={Building2} title="Bank Transfer" description="Transfer from your bank account" /><PaymentMethod method="card" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={CreditCard} title="Debit Card" description="Visa, Mastercard, Verve" /><PaymentMethod method="ussd" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={QrCode} title="USSD" description="Complete with your bank USSD code" /></div><p className="mt-2 text-[11px] text-gray-500">Paystack will process the selected payment option after you continue.</p></section>
+        <section><h3 className="mb-2 text-sm font-extrabold">Payment Method</h3><div className="space-y-2"><PaymentMethod method="bank" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={Building2} title="Bank Transfer" description="Transfer from your bank account" /><PaymentMethod method="card" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={CreditCard} title="Debit Card" description="Visa, Mastercard, Verve" /><PaymentMethod method="ussd" selectedMethod={selectedMethod} onSelect={setSelectedMethod} icon={QrCode} title="USSD" description="Complete with your bank USSD code" /></div><p className="mt-2 text-[11px] text-gray-500">Flutterwave will process the selected payment option after you continue.</p></section>
         {membershipUnpaid && <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-xs text-orange-900"><p className="font-bold">Membership fee required</p><p className="mt-1">Pay {formatNaira(MEMBERSHIP_FEE_AMOUNT)} to unlock loan repayment.</p><Button fullWidth variant="secondary" className="mt-3" onClick={() => navigate(ROUTES.MEMBERSHIP_FEE)}>Pay Membership Fee</Button></section>}
         <Button fullWidth size="lg" isLoading={isSubmitting} disabled={membershipUnpaid} onClick={handleContinue}>Continue</Button>
       </main>

@@ -1,103 +1,15 @@
 import { useState } from "react";
-import {
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Calendar,
-  RefreshCw,
-  Search,
-  CheckCircle,
-  Clock,
-  ArrowUpRight,
-  TrendingUp,
-  Users,
-  Wallet,
-  Building2,
-  Bell,
-  Sparkles,
-} from "lucide-react";
+import { TopHeader } from "@/components/navigation/TopHeader";
+import { Download, FileSpreadsheet, FileText, Calendar, RefreshCw, Search, CheckCircle, Clock, TrendingUp, Users, Wallet, Building2, Bell, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { useAsync } from "@/hooks/useAsync";
-import {
-  getAdminReports,
-  downloadReportPdf,
-  downloadReportExcel,
-} from "@/services/adminService";
+import { getAdminReports, downloadReportPdf, downloadReportExcel } from "@/services/adminService";
 import { formatNaira, formatDate } from "@/utils/format";
-import toast from "react-hot-toast";
-
-// ─── TOP HEADER COMPONENT ────────────────────────────────
-function AdminHeader({ onSearch }) {
-  const [query, setQuery] = useState("");
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && onSearch) {
-      onSearch(query);
-    }
-  };
-
-  return (
-    <header
-      className="sticky top-0 z-30 flex h-16 w-full items-center justify-between rounded-b-3xl px-4 text-white shadow-md sm:px-6"
-      style={{
-        background: "linear-gradient(180deg, #1d2d6d 0%, #131e49 60%, #090f24 100%)",
-      }}
-    >
-      <div className="flex items-center gap-3 flex-1 max-w-lg">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-2.5 size-4 text-[#dee3f9]/70" />
-          <input
-            type="text"
-            placeholder="Search report logs, refs... (Press Enter)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-full rounded-xl border border-[#bdc8f3]/30 bg-white/10 py-2 pl-9 pr-4 text-xs font-medium text-white placeholder:text-[#dee3f9]/60 backdrop-blur-md transition-all focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-300">
-          <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-          Audit Live
-        </div>
-
-        <button className="relative rounded-full p-2 text-[#dee3f9] hover:bg-white/10 transition-colors">
-          <Bell className="size-4" />
-          <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-400" />
-        </button>
-      </div>
-    </header>
-  );
-}
-
-// ─── MOBILE-OPTIMIZED METRIC CARD ────────────────────────
-function MobileReportMetricCard({ icon: Icon, label, value, color = "indigo" }) {
-  return (
-    <div className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 sm:p-4 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#dee3f9]/40 text-[#131e49]">
-        <Icon className="h-5 w-5 text-[#131e49]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-gray-500 truncate leading-tight">
-          {label}
-        </p>
-        <p className="mt-0.5 wrap-break-word text-base font-black tracking-tight text-[#090f24] sm:text-lg">
-          {value ?? "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN ADMIN REPORTS COMPONENT
-// ═══════════════════════════════════════════════════════════
+import { ROUTES } from "@/constants/routes";
 
 export function AdminReports() {
   const [reportType, setReportType] = useState("overview");
@@ -201,16 +113,14 @@ export function AdminReports() {
   return (
     <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
       {/* ── TOP HEADER ───────────────────────────────────── */}
-      <AdminHeader />
+      <TopHeader />
 
       <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
-        
+
         {/* Reports Hero Banner */}
         <div
           className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{
-            background: "linear-gradient(135deg, #1d2d6d 0%, #131e49 50%, #090f24 100%)",
-          }}
+          style={{ background: "linear-gradient(135deg, #5B76E1 0%, #131e49 50%, #090f24 100%)" }}
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
@@ -258,11 +168,7 @@ export function AdminReports() {
               <button
                 key={type}
                 onClick={() => setReportType(type)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap capitalize ${
-                  reportType === type
-                    ? "bg-[#131e49] text-white shadow-xs"
-                    : "bg-[#dee3f9]/30 text-gray-600 hover:bg-[#dee3f9]/60"
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap capitalize ${reportType === type ? "bg-[#131e49] text-white shadow-xs" : "bg-[#dee3f9]/30 text-gray-600 hover:bg-[#dee3f9]/60"}`}
               >
                 {type}
               </button>
@@ -416,6 +322,25 @@ export function AdminReports() {
             </div>
           )}
         </Card>
+      </div>
+    </div>
+  );
+}
+
+/** Mobile-optimized metric card component for admin reports */
+function MobileReportMetricCard({ icon: Icon, label, value, color = "indigo" }) {
+  return (
+    <div className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 sm:p-4 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#dee3f9]/40 text-[#131e49]">
+        <Icon className="h-5 w-5 text-[#131e49]" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold text-gray-500 truncate leading-tight">
+          {label}
+        </p>
+        <p className="mt-0.5 wrap-break-word text-base font-black tracking-tight text-[#090f24] sm:text-lg">
+          {value ?? "—"}
+        </p>
       </div>
     </div>
   );

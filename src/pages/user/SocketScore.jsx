@@ -23,9 +23,11 @@ export function SocketScore() {
   const { data: breakdownData, isLoading: loadingBreakdown } = useAsync(getScoreBreakdown, []);
   const { data: historyData, isLoading: loadingHistory } = useAsync(() => getScoreHistory({ months: 6 }), []);
 
-  const breakdown = breakdownData?.breakdown || breakdownData?.data || [];
-  const percentile = breakdownData?.percentile || "Top 20%";
-  const change = breakdownData?.change || 0;
+  const scorePayload = breakdownData?.data || breakdownData || {};
+  const breakdown = scorePayload.components || breakdownData?.breakdown || [];
+  const history = historyData?.data || historyData || [];
+  const percentile = scorePayload.percentile || "—";
+  const change = scorePayload.change || 0;
 
   return (
     <div>
@@ -55,23 +57,25 @@ export function SocketScore() {
           ) : (
             <div className="space-y-3">
               {breakdown.map((item) => {
-                const Icon = ICON_MAP[item.label] || Award;
+                const Icon = ICON_MAP[item.name] || Award;
+                const maximum = Number(item.maximum ?? item.weight ?? 0);
+                const earned = Number(item.score ?? item.contribution ?? 0);
                 return (
-                  <Card key={item.label} className="p-4">
+                  <Card key={item.code || item.name} className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="flex size-10 items-center justify-center rounded-full bg-brand-50 text-brand-600">
                         <Icon className="size-5" />
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between text-sm">
-                          <span className="font-semibold text-text-primary">{item.label}</span>
-                          <span className="font-bold text-brand-600">{item.value}%</span>
+                          <span className="font-semibold text-text-primary">{item.name}</span>
+                          <span className="font-bold text-brand-600">{earned.toFixed(2)} / {maximum}</span>
                         </div>
-                        <p className="text-xs text-text-muted">{item.description}</p>
+                        <p className="text-xs text-text-muted">{item.rawScore}% | {item.status || "configured"}</p>
                         <div className="mt-1 h-2 w-full rounded-full bg-surface-alt overflow-hidden">
                           <div
                             className="h-full rounded-full bg-brand-600 transition-all"
-                            style={{ width: `${item.value}%` }}
+                            style={{ width: `${Math.min(100, Math.max(0, item.rawScore || 0))}%` }}
                           />
                         </div>
                       </div>
@@ -89,11 +93,49 @@ export function SocketScore() {
             <div>
               <p className="text-sm font-bold text-brand-800">Insights & Tips</p>
               <p className="text-xs text-brand-700 mt-1">
-                {breakdownData?.tip || "Great job! You are on the right track. To reach an A+ Elite grade, try to maintain consistent savings and repay loans on or before due date."}
+                {scorePayload.tip || "Your score is calculated from the active component configuration."}
               </p>
             </div>
           </div>
         </Card>
+
+        <div>
+          <h2 className="text-sm font-bold text-text-primary mb-3">Score History</h2>
+          {loadingHistory ? (
+            <LoadingState rows={2} />
+          ) : history.length === 0 ? (
+            <EmptyState title="No score history yet" />
+          ) : (
+            <div className="space-y-3">
+              {history.map((entry) => (
+                <Card key={entry._id || `${entry.calculatedAt}-${entry.configurationVersion}`} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">{Number(entry.overallScore || 0).toFixed(2)}/100</p>
+                      <p className="text-xs text-text-muted">
+                        {entry.calculatedAt ? new Date(entry.calculatedAt).toLocaleDateString() : "Historical calculation"}
+                        {entry.configurationVersion ? ` | Configuration v${entry.configurationVersion}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-brand-600">{entry.trigger || "system update"}</span>
+                  </div>
+                  {entry.components?.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {entry.components.map((component) => (
+                        <div key={component.code} className="rounded-lg bg-surface-alt px-2 py-1.5">
+                          <p className="truncate text-[11px] text-text-muted">{component.name}</p>
+                          <p className="text-xs font-semibold text-text-primary">
+                            {component.rawScore}/100 | +{Number(component.contribution || 0).toFixed(2)} | {component.status || "configured"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

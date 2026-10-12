@@ -63,9 +63,9 @@ export async function verifyDeposit(data) {
   );
 }
 /**
- * Initiate a loan repayment via Paystack Popup.
- * Calls POST /api/loans/repay/initialize which returns the Paystack
- * checkout payload (publicKey, reference, amount in kobo, etc).
+ * Initiate a loan repayment via Flutterwave Window Checkout.
+ * Calls POST /api/loans/repay/initialize which returns the Flutterwave
+ * checkout payload (publicKey, reference/tx_ref, amount in NGN, customer, etc).
  */
 export async function initiateLoanRepayment({ loanId, paymentAmount }) {
   try {
@@ -99,7 +99,7 @@ export async function verifyLoanRepayment({
 
 export async function paymentCallback(reference) {
   try {
-    return await apiClient.get(`/payments/deposit/callback?reference=${reference}`, { auth: false });
+    return await apiClient.get(`/payments/deposit/callback?reference=${reference}`);
   } catch (error) {
     console.warn("API unavailable, returning mock payment callback status", error);
     await mockDelay(300);
@@ -109,4 +109,41 @@ export async function paymentCallback(reference) {
       reference,
     };
   }
+}
+
+export async function getMinutesDue() { const res = await apiClient.get( "/payments/minutes/due" ); return res?.data || res; }
+
+export async function initializeMinutesContribution() {
+  const res = await apiClient.post(
+    "/payments/minutes/initialize"
+  );
+
+  return res?.data || res;
+}
+
+/**
+ * Verify monthly SocketMinutes contribution.
+ *
+ * POST /api/payment/minutes/verify
+ *
+ * Body:
+ * {
+ *   reference
+ * }
+ */
+export async function verifyMinutesContribution({
+  reference,
+  tx_ref,
+  transaction_id,
+}) {
+  const res = await apiClient.post(
+    "/payments/minutes/verify",
+    {
+      reference,
+      tx_ref,
+      transaction_id,
+    }
+  );
+
+  return res?.data || res;
 }

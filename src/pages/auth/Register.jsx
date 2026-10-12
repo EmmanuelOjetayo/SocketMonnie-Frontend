@@ -246,6 +246,9 @@ export function Register() {
                   onChange={handleChange}
                   className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#3B62EC]"
                 />
+                {referralFromUrl && (
+                  <p className="mt-1 pl-12 text-xs text-emerald-600">Referral code applied from your invitation link.</p>
+                )}
               </div>
 
               <div className="relative">

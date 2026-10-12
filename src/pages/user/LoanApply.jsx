@@ -43,9 +43,9 @@ const STEPS = [
 ];
 
 const TIER_LABELS = {
-  "1st_tier_70": "First Tier (70%)",
-  "2nd_tier_100": "Second Tier (100%)",
-  "3rd_tier_150": "Third Tier (150%)",
+  "1st_tier_100": "First Tier (100%)",  // Changed from 70%
+  "2nd_tier_150": "Second Tier (150%)", // Changed from 100%
+  "3rd_tier_200": "Third Tier (200%)",  // Changed from 150%
 };
 
 export function LoanApply() {
@@ -62,9 +62,11 @@ export function LoanApply() {
   const restoredDraft = useRef(false);
 
   // Guarantor lookup states
-  const [guarantors, setGuarantors] = useState([null, null, null]);
+  const [guarantors, setGuarantors] = useState([null, null, null, null]);
   const [checkingGuarantor, setCheckingGuarantor] = useState(false);
-  const [guarantorErrors, setGuarantorErrors] = useState(["", "", ""]);
+  const [guarantorErrors, setGuarantorErrors] = useState(["", "", "", ""]);
+ 
+ 
   const { data: existingLoan, refetch: refetchExistingLoan } = useAsync(getActiveLoan, []);
 
   const {
@@ -89,7 +91,7 @@ export function LoanApply() {
       phone: user?.phone || "",
       address: user?.address || "",
       occupation: user?.occupation || "",
-      guarantorReferralCodes: ["", "", ""],
+      guarantorReferralCodes: ["", "", "", ""],
     },
   });
 
@@ -98,6 +100,15 @@ export function LoanApply() {
   const watchedLoanType = watch("loanType");
   const watchedGuarantorCodes = watch("guarantorReferralCodes") || ["", "", ""];
   const guarantorCodesKey = watchedGuarantorCodes.join("|");
+
+
+
+  const getGuarantorRequirement = (amount) => {
+  if (!amount || amount <= 0) return "₦0";
+  const required = Number(amount) * 1.25;
+  return formatNaira(required);
+};
+
 
   useEffect(() => {
     let draft = null;
@@ -283,25 +294,27 @@ useEffect(() => {
   }, []);
 
   // Validate each guarantor referral code independently.
-  useEffect(() => {
-    const cleanCodes = watchedGuarantorCodes.map((code) => (code || "").trim().toUpperCase());
-    const timeout = setTimeout(async () => {
-      setCheckingGuarantor(true);
-      const results = await Promise.all(cleanCodes.map(async (code, index) => {
-        if (code.length < 3) return { guarantor: null, error: "" };
-        try {
-          const res = await searchGuarantor(code);
-          return { guarantor: res?.guarantor || res, error: "" };
-        } catch (err) {
-          return { guarantor: null, error: err?.data?.message || err?.message || "Guarantor not eligible or found" };
-        }
-      }));
-      setGuarantors(results.map((result) => result.guarantor));
-      setGuarantorErrors(results.map((result) => result.error));
-      setCheckingGuarantor(false);
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [guarantorCodesKey]);
+useEffect(() => {
+  const cleanCodes = watchedGuarantorCodes.map((code) => (code || "").trim().toUpperCase());
+  const timeout = setTimeout(async () => {
+    setCheckingGuarantor(true);
+    const results = await Promise.all(cleanCodes.map(async (code, index) => {
+      if (code.length < 3) return { guarantor: null, error: "" };
+      try {
+        const res = await searchGuarantor(code);
+        return { guarantor: res?.guarantor || res, error: "" };
+      } catch (err) {
+        return { guarantor: null, error: err?.data?.message || err?.message || "Guarantor not eligible or found" };
+      }
+    }));
+    setGuarantors(results.map((result) => result.guarantor));
+    setGuarantorErrors(results.map((result) => result.error));
+    setCheckingGuarantor(false);
+  }, 400);
+  return () => clearTimeout(timeout);
+}, [guarantorCodesKey]);
+
+
 
   // Calculations driven entirely by backend state
   const principal = Number(watchedAmount || 0);
@@ -342,20 +355,22 @@ useEffect(() => {
     return;
   }
 
-  const normalizedCodes = watchedGuarantorCodes.map((code) =>
-    (code || "").trim().toUpperCase()
-  );
+const normalizedCodes = watchedGuarantorCodes.map((code) =>
+  (code || "").trim().toUpperCase()
+);
 
-  const hasThreeUniqueCodes =
-    normalizedCodes.length === 3 &&
-    normalizedCodes.every(Boolean) &&
-    new Set(normalizedCodes).size === 3;
+const hasFourUniqueCodes =
+  normalizedCodes.length === 4 &&
+  normalizedCodes.every(Boolean) &&
+  new Set(normalizedCodes).size === 4;
 
-  const allGuarantorsVerified =
-    guarantors.length === 3 &&
-    guarantors.every(Boolean);
+const allGuarantorsVerified =
+  guarantors.length === 4 &&
+  guarantors.every(Boolean);
 
-  if (!hasThreeUniqueCodes || !allGuarantorsVerified) {
+
+
+  if (!hasFourUniqueCodes || !allGuarantorsVerified) {
     toast.error(
       guarantorErrors.find(Boolean) ||
       "Please enter three valid and eligible guarantor codes."
@@ -392,7 +407,7 @@ useEffect(() => {
     }
 
     if (guarantors.some((guarantor) => !guarantor)) {
-      toast.error("Three valid and eligible guarantors are required.");
+      toast.error("Four valid and eligible guarantors are required.");
       return;
     }
 
@@ -665,12 +680,17 @@ if (res) {
         return (
           <div className="space-y-4">
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+                <p className="font-bold">⚠️ Guarantor Requirement:</p>
+                <p>Each guarantor must have net savings of at least <strong>{getGuarantorRequirement(watchedAmount)}</strong> (125% of your loan amount).</p>
+                <p className="text-[10px] text-blue-600 mt-1">Guarantors must also have consistent savings history (minimum ₦5,000/month for 6 months).</p>
+              </div>
               <div>
                 <h2 className="text-base font-bold text-[#090F47]">3. Guarantor Verification</h2>
                 <p className="text-xs text-gray-500">Provide referral codes for three eligible cooperative guarantors</p>
               </div>
 
-              {[0, 1, 2].map((index) => (
+              {[0, 1, 2,3].map((index) => (
                 <div key={index} className="space-y-2">
                   <Input
                     label={`Guarantor ${index + 1} Referral Code`}
@@ -698,7 +718,7 @@ if (res) {
               ))}
 {guarantors.every(Boolean) && !applicationLoanId && (
   <p className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-    All three guarantors have been verified and are eligible. 
+    All four guarantors have been verified and are eligible. 
     You can now continue to review and submit your loan application.
   </p>
 )}

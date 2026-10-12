@@ -89,7 +89,7 @@ export function Login() {
       </header>
 
       <div className="px-5 space-y-5 mt-6">
-        <Card className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <Card className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm login-card">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               name="email"

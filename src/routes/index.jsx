@@ -49,6 +49,7 @@ import { Referrals } from "@/pages/user/Referrals";
 import { LoanRepay } from "@/pages/user/LoanRepay";
 import { MembershipFee } from "@/pages/user/MembershipFee";
 import { GuarantorVerify } from "@/pages/user/GuarantorVerify";
+import { Minutes} from "@/pages/user/Minutes";
 // Admin
 import { AdminDashboard } from "@/pages/admin/Dashboard";
 import { AdminMembers } from "@/pages/admin/Members";
@@ -113,6 +114,8 @@ export const router = createBrowserRouter([
           { path: ROUTES.PAYMENTS_SAVINGS_SUCCESS, element: <DepositSuccess /> },
           { path: ROUTES.PAYMENTS_SAVINGS_FAILED, element: <DepositFailed /> },
           { path: ROUTES.MEMBERSHIP_FEE, element: <MembershipFee /> },
+          { path: ROUTES.MINUTES, element: <Minutes /> },
+          
           { path: ROUTES.SAVINGS_WITHDRAW, element: <Withdraw /> },
           { path: ROUTES.SAVINGS_WITHDRAW_CONFIRM, element: <ConfirmWithdrawal /> },
           { path: ROUTES.SAVINGS_WITHDRAW_SUCCESS, element: <WithdrawalSuccess /> },

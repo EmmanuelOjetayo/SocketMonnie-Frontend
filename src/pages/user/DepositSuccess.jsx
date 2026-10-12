@@ -23,7 +23,7 @@ export function DepositSuccess() {
   const statePreviousBalance = state.previousBalance;
   const stateNewBalance = state.newBalance;
 
-  // --- Read from URL query params (Paystack callback) ---
+  // --- Read from URL query params (Flutterwave callback) ---
   const params = new URLSearchParams(location.search);
   const queryTxRef = params.get("tx_ref") || params.get("reference") || stateReference || null;
   const queryTransactionId = params.get("transaction_id") || params.get("transactionId") || state.transactionId || null;

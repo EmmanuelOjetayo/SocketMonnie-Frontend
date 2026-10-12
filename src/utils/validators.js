@@ -34,7 +34,7 @@ export const loanApplicationSchema = z.object({
   purpose: z.string().min(3, "Tell us what the loan is for"),
   loanType: z.enum(["cooperative", "emergency", "personal", "business"], { message: "Select a loan type" }),
   disbursementMethod: z.enum(["bank_transfer", "wallet"], { message: "Select a disbursement method" }),
-  guarantorReferralCodes: z.array(z.string().min(3, "Enter a referral code")).length(3, "Three guarantor codes are required"),
+  guarantorReferralCodes: z.array(z.string().min(4, "Enter a referral code")).length(4, "Four guarantor codes are required"),
 });
 
 export const pinSchema = z.object({

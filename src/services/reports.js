@@ -15,19 +15,17 @@ export async function getMonthlyStatement(params = {}) {
  * Download statement PDF blob directly from backend matching selected date range
  * GET /api/reports/download-pdf?month=&year=
  * Returns: Blob (PDF)
+ * Credentials included so httpOnly cookie is sent with the request.
  */
 export async function downloadStatementPdf(params = {}) {
   const month = params.month || new Date().getMonth() + 1;
   const year = params.year || new Date().getFullYear();
-  const token = localStorage.getItem("socketmoni_token");
 
   const response = await fetch(
     `${API_BASE_URL}/reports/download-pdf?month=${month}&year=${year}`,
     {
       method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      credentials: "include",
     }
   );
 
