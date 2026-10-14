@@ -20,11 +20,21 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     getCurrentUser()
       .then((res) => {
-        // Correctly handling response structure { success, data: { user } } or { success, user }
-        const fetchedUser = res?.data?.user || res?.user || res?.data || res;
-
-        if (fetchedUser && (fetchedUser._id || fetchedUser.id || fetchedUser.email)) {
+        // Normalize response: accepted shapes are
+        // { success, data: { user } }, { success, user }, { data: { user } }, { user }, { success: false }
+        let fetchedUser = null;
+        if (res && typeof res === "object") {
+          if (res?.data && res?.data?.user) fetchedUser = res.data.user;
+          else if (res?.user) fetchedUser = res.user;
+          else if (res?.data?.fetchedUser) fetchedUser = res.data.fetchedUser;
+          else if (res?.fetchedUser) fetchedUser = res.fetchedUser;
+          else if (res?.user) fetchedUser = res.user;
+        }
+        // Also accept the raw user object if it has identifying properties
+        if (fetchedUser && (fetchedUser._id || fetchedUser.id || fetchedUser.email || fetchedUser.email)) {
           setUser(fetchedUser);
+        } else if (res && (res._id || res.id || res.email)) {
+          setUser(res);
         } else {
           console.error("Invalid user payload", res);
         }
