@@ -53,7 +53,12 @@ export function DepositSuccess() {
     : "Successful";
 
   useEffect(() => {
-    const shouldVerify = queryTransactionId && queryTxRef && !isVerified && !verificationError;
+    // Verify deposit when we have either a transaction_id OR a tx_ref from the callback
+    const hasTransactionId = queryTransactionId != null;
+    const hasTxRef = queryTxRef != null;
+    
+    // Verify if we have at least one identifier and haven't verified yet
+    const shouldVerify = (hasTransactionId || hasTxRef) && !isVerified && !verificationError;
     if (!shouldVerify) return;
 
     const verifyPayment = async () => {
