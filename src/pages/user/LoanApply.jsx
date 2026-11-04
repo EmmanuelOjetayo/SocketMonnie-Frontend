@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/Input";
 import { loanApplicationSchema } from "@/utils/validators";
 import { applyForLoan, getLoanEligibility, getActiveLoan } from "@/services/loans";
 import { searchGuarantor } from "@/services/guarantor";
-import { getUserDraft, saveUserDraft, deleteUserDraft } from "@/services/user";
+import { getUserDraft, saveUserDraft, deleteUserDraft, acceptTerms } from "@/services/user";
 import { LOAN_DURATIONS, LOAN_TYPES, DISBURSEMENT_METHODS } from "@/constants/config";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
@@ -457,6 +457,11 @@ const allGuarantorsVerified =
       toast.error("Please accept the Socket Monie Terms and Conditions and Privacy Policy to submit a loan application.");
       return;
     }
+
+    // Record terms acceptance on the backend before the financial action.
+    await acceptTerms(true, true).catch(() => {
+      /* backend acceptance gate will surface any failure */
+    });
 
     if (!eligibility?.isEligible) {
       toast.error("You are currently not eligible to request a loan.");

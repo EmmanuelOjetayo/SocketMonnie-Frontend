@@ -59,6 +59,16 @@ export async function deleteUserDraft() {
 }
 
 /**
+ * PATCH /api/user/terms/accept — record Terms & Conditions / Privacy Policy
+ * acceptance for the authenticated user (owner-approved consent tracking).
+ * Body: { termsAccepted: true, privacyAccepted: true }
+ */
+export async function acceptTerms(termsAccepted, privacyAccepted) {
+  if (USE_MOCK) return mockDelay({ success: true });
+  return apiClient.patch("/user/terms/accept", { termsAccepted, privacyAccepted });
+}
+
+/**
  * ## Set Transaction PIN
  * POST /api/user/pin
  * Body: { pin }
