@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,14 +34,14 @@ export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(loginSchema) });
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "", termsAccepted: false, privacyAccepted: false },
+  });
 
   async function onSubmit(values) {
     try {
@@ -125,12 +124,7 @@ export function Login() {
             {/* Terms & Conditions / Privacy Policy acceptance (mandatory) */}
             <div className="space-y-3 pt-1 border-t border-gray-100">
               <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 rounded text-[#3B62EC] focus:ring-0"
-                />
+                <input type="checkbox" {...register("termsAccepted")} className="mt-0.5 rounded text-[#3B62EC] focus:ring-0" />
                 <span>
                   I have read and agree to the{" "}
                   <Link to={ROUTES.TERMS} className="font-semibold text-[#3B62EC]">
@@ -144,12 +138,7 @@ export function Login() {
                 </span>
               </label>
               <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={privacyAccepted}
-                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                  className="mt-0.5 rounded text-[#3B62EC] focus:ring-0"
-                />
+                <input type="checkbox" {...register("privacyAccepted")} className="mt-0.5 rounded text-[#3B62EC] focus:ring-0" />
                 <span>
                   I acknowledge the collection and processing of my information as described in the{" "}
                   <Link to={ROUTES.PRIVACY} className="font-semibold text-[#3B62EC]">

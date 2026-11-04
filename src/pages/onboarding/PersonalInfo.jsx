@@ -13,6 +13,8 @@ export function PersonalInfo() {
   const [showPassword, setShowPassword] = useState(false);
   const [enableBiometrics, setEnableBiometrics] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const checks = {
     length: password.length >= 8,
@@ -27,6 +29,10 @@ export function PersonalInfo() {
     e.preventDefault();
     if (!isPasswordValid) {
       toast.error("Please satisfy all password requirements");
+      return;
+    }
+    if (!termsAccepted || !privacyAccepted) {
+      toast.error("Please accept the Socket Monie Terms and Conditions and Privacy Policy to continue.");
       return;
     }
     if (password !== confirmPassword) {
@@ -50,6 +56,8 @@ export function PersonalInfo() {
       phone: cached.phone,
       referralCode: cached.referralCode,
       password: password,
+      termsAccepted: true,
+      privacyAccepted: true,
     };
 
     try {
@@ -199,6 +207,33 @@ export function PersonalInfo() {
               <h4 className="text-xs font-bold text-gray-900">Your security is our priority</h4>
               <p className="text-xs text-gray-600 mt-0.5">Your transactions and data are protected</p>
             </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3">
+            <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-[#3B62EC] focus:ring-0"
+              />
+              <span>
+                I have read and agree to the{" "}
+                <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the{" "}
+                <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={privacyAccepted}
+                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-[#3B62EC] focus:ring-0"
+              />
+              <span>I acknowledge the collection and processing of my information as described in the{" "}
+                <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+              </span>
+            </label>
           </div>
 
           <button
