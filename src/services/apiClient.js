@@ -6,7 +6,21 @@ import { API_BASE_URL } from "@/constants/config";
  * - Auto-detects FormData and leaves Content-Type header to the browser.
  * - Throws a normalized Error with `.status` and `.data` for callers to catch.
  */
-async function request(path, { method = "GET", body, headers } = {}) {
+/**
+ * Read a non-httpOnly cookie value (e.g. the CSRF double-submit token).
+ */
+function readCookie(name) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+}
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+async function request(path, { method = "GET", body, headers, _isRetry } = {}) {
   // Check if body is FormData (e.g., file uploads)
   const isFormData = body instanceof FormData;
 
@@ -21,10 +35,20 @@ async function request(path, { method = "GET", body, headers } = {}) {
   const formattedPath = path.startsWith("/") ? path : `/${path}`;
   const targetUrl = `${API_BASE_URL.replace(/\/$/, "")}${formattedPath}`;
 
+  const requestMethod = method.toUpperCase();
+  const isSafeMethod = SAFE_METHODS.has(requestMethod);
+
+  // CSRF double-submit mirror: the csrfToken cookie (JS-readable) must be
+  // echoed into the X-CSRF-Token header on every state-changing request.
+  const csrfToken = !isSafeMethod ? readCookie("csrfToken") : null;
+
   const response = await fetch(targetUrl, {
     method,
     credentials: "include",
-    headers: defaultHeaders,
+    headers: {
+      ...defaultHeaders,
+      ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+    },
     // Don't JSON.stringify if body is FormData
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
@@ -34,6 +58,17 @@ async function request(path, { method = "GET", body, headers } = {}) {
     data = await response.json();
   } catch {
     // No JSON body (e.g. 204 No Content)
+  }
+
+  // CSRF bootstrap: the very first state-changing request after deploy (or a
+  // fresh login) can be answered with 403 CSRF_TOKEN_INVALID — the backend
+  // issues a fresh csrfToken cookie in that response. Retry once.
+  if (
+    response.status === 403 &&
+    data?.code === "CSRF_TOKEN_INVALID" &&
+    !_isRetry
+  ) {
+    return request(path, { method, body, headers, _isRetry: true });
   }
 
   if (!response.ok) {

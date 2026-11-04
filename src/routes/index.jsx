@@ -62,11 +62,14 @@ import { SupportDashboard } from "@/pages/support/SupportDashboard";
 
 
 import { AdminSettings } from "@/pages/admin/Settings";
+import { AdminAuditTrail } from "@/pages/admin/AuditTrail";
 import { DepositSuccess } from "@/pages/user/DepositSuccess";
 import { DepositFailed } from "@/pages/user/DepositFailed";
 
 
 import { NotFound } from "@/pages/NotFound";
+import { Terms } from "@/pages/legal/Terms";
+import { Privacy } from "@/pages/legal/Privacy";
 
 export const router = createBrowserRouter([
   {
@@ -81,6 +84,8 @@ export const router = createBrowserRouter([
       { path: ROUTES.VERIFY_OTP, element: <VerifyOtp /> },
       { path: ROUTES.FORGOT_PASSWORD, element: <ForgotPassword /> },
       { path: ROUTES.RESET_PASSWORD, element: <ResetPassword /> },
+      { path: ROUTES.TERMS, element: <Terms /> },
+      { path: ROUTES.PRIVACY, element: <Privacy /> },
     ],
   },
   {
@@ -146,6 +151,7 @@ export const router = createBrowserRouter([
           { path: ROUTES.ADMIN_LOANS, element: <AdminLoans /> },
           { path: ROUTES.ADMIN_REPORTS, element: <AdminReports /> },
           { path: ROUTES.ADMIN_SETTINGS, element: <AdminSettings /> },
+          { path: ROUTES.ADMIN_AUDIT, element: <AdminAuditTrail /> },
           {path: ROUTES.WITHDRAWS, element: <WithdrawalApprovals /> }
         ],
       },

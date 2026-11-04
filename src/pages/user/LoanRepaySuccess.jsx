@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { TopHeader } from "@/components/navigation/TopHeader";
@@ -8,6 +9,14 @@ export function LoanRepaySuccess() {
   const location = useLocation();
   const navigate = useNavigate();
   const { amount, method, reference, remainingBalance, date } = location.state || {};
+
+  // Safe refresh (P2-001): without state there is no receipt to show —
+  // redirecting to the loans page prevents misleading ₦0 receipts.
+  useEffect(() => {
+    if (!location.state || (!reference && !amount)) {
+      navigate(ROUTES.LOANS, { replace: true });
+    }
+  }, [location.state, reference, amount, navigate]);
 
   const details = [
     { label: "Method", value: method?.replace("_", " ")?.toUpperCase() || "Bank Transfer" },

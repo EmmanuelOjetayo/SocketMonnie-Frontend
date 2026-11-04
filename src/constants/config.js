@@ -1,12 +1,11 @@
 // Runtime + business-rule constants sourced from the PRD and Figma.
 // Priority: VITE_API_BASE_URL env var (must include http:// or https:// protocol prefix), fallback to render URL.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://socketmonie.onrender.com/api";
-
 // Ensure the base URL always has a protocol prefix.
 // If somehow the fallback lost its prefix, correct it.
-if (!/^https?:\/\//i.test(API_BASE_URL)) {
-  API_BASE_URL = `https://${API_BASE_URL}`;
-}
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://socketmonie.onrender.com/api";
+export const API_BASE_URL = /^https?:\/\//i.test(RAW_API_BASE_URL)
+  ? RAW_API_BASE_URL
+  : `https://${RAW_API_BASE_URL}`;
 
 // Savings Plans (PRD)
 export const SAVINGS_PLANS = [

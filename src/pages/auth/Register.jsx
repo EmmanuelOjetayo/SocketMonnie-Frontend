@@ -161,6 +161,8 @@ export function Register() {
       phone: formData.phone,
       referralCode: formData.referralCode,
       password: formData.password,
+      termsAccepted: formData.termsAccepted === true,
+      privacyAccepted: formData.privacyAccepted === true,
     };
 
     try {
@@ -353,7 +355,10 @@ export function Register() {
                     onChange={handleChange}
                     className="rounded text-[#3B62EC] focus:ring-0"
                   />
-                  I agree to Socket Moniee's <span className="text-[#3B62EC] font-semibold">Terms & Condition</span>
+                  I agree to Socket Moniee's{" "}
+                  <span className="text-[#3B62EC] font-semibold">
+                    <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms &amp; Condition</Link>
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
                   <input
@@ -363,7 +368,10 @@ export function Register() {
                     onChange={handleChange}
                     className="rounded text-[#3B62EC] font-semibold"
                   />
-                  I agree to Socket Moniee's <span className="text-[#3B62EC] font-semibold">Privacy Policy</span>
+                  I agree to Socket Moniee's{" "}
+                  <span className="text-[#3B62EC] font-semibold">
+                    <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>
+                  </span>
                 </label>
               </div>
 

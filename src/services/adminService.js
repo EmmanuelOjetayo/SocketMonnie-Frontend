@@ -181,3 +181,18 @@ export async function getSystemSettings() {
 export async function updateSystemSettings(settingsData) {
   return apiClient.put("/admin/settings", settingsData);
 }
+
+/**
+ * Admin: Fetch paginated audit logs with optional filters
+ * GET /api/settings/audit-logs?action=&targetType=&actorId=&page=&limit=
+ */
+export async function getAuditLogs({ action, targetType, actorId, page = 1, limit = 25 } = {}) {
+  const params = new URLSearchParams();
+  if (action) params.append("action", action);
+  if (targetType) params.append("targetType", targetType);
+  if (actorId) params.append("actorId", actorId);
+  if (page) params.append("page", page);
+  if (limit) params.append("limit", limit);
+
+  return apiClient.get(`/settings/audit-logs?${params.toString()}`);
+}

@@ -17,6 +17,7 @@ import {
   Eye,
   FileText,
   Copy,
+  AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -181,6 +182,11 @@ export function Profile() {
   }
 
   async function handleKycUpload() {
+    // Owner-approved KYC policy: NIN is mandatory, BVN optional.
+    if (!kycData.nin || kycData.nin.length !== 11) {
+      toast.error("Your 11-digit NIN is required for verification");
+      return;
+    }
     if (!kycFile && !user?.documentUrl) {
       toast.error("Please select a document file to upload");
       return;
@@ -189,8 +195,8 @@ export function Profile() {
     const formData = new FormData();
     if (kycFile) formData.append("file", kycFile);
     formData.append("documentType", kycData.documentType);
+    formData.append("nin", kycData.nin);
     if (kycData.bvn) formData.append("bvn", kycData.bvn);
-    if (kycData.nin) formData.append("nin", kycData.nin);
 
     try {
       const res = await uploadKycDocument(formData);
@@ -544,6 +550,21 @@ export function Profile() {
               </button>
             </div>
 
+            {/* Rejected → in-app replacement affordance (owner decision #1) */}
+            {kycStatus === "rejected" && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
+                <p className="text-xs font-bold text-red-700 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Document Rejected — Replacement Required
+                </p>
+                {user?.kycRejectionReason && (
+                  <p className="text-[11px] text-red-600 mt-1">Reason: {user.kycRejectionReason}</p>
+                )}
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Please update your document below. Your submission returns to the admin verification queue automatically.
+                </p>
+              </div>
+            )}
+
             {/* Existing Document Preview Badge */}
             {user?.documentUrl && (
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
@@ -589,9 +610,9 @@ export function Profile() {
               />
 
               <Input
-                label="NIN (11 Digits)"
+                label="NIN (11 Digits) — Required"
                 maxLength={11}
-                placeholder="Optional"
+                placeholder="Required (11 digits)"
                 value={kycData.nin}
                 onChange={(e) => setKycData({ ...kycData, nin: e.target.value.replace(/\D/g, "") })}
               />

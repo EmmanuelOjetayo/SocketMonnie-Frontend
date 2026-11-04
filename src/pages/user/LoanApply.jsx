@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/Input";
 import { loanApplicationSchema } from "@/utils/validators";
 import { applyForLoan, getLoanEligibility, getActiveLoan } from "@/services/loans";
 import { searchGuarantor } from "@/services/guarantor";
+import { getUserDraft, saveUserDraft, deleteUserDraft } from "@/services/user";
 import { LOAN_DURATIONS, LOAN_TYPES, DISBURSEMENT_METHODS } from "@/constants/config";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
@@ -43,9 +44,10 @@ const STEPS = [
 ];
 
 const TIER_LABELS = {
-  "1st_tier_100": "First Tier (100%)",  // Changed from 70%
-  "2nd_tier_150": "Second Tier (150%)", // Changed from 100%
-  "3rd_tier_200": "Third Tier (200%)",  // Changed from 150%
+  // Backend (LoanService) produces these tier names.
+  "emergency_75": "Emergency Tier (75%)",
+  "1st_tier_150": "First Tier (150%)",
+  "2nd_tier_200": "Second Tier (200%)",
 };
 
 export function LoanApply() {
@@ -58,8 +60,11 @@ export function LoanApply() {
   const [submittedLoanData, setSubmittedLoanData] = useState(null);
   const [applicationLoanId, setApplicationLoanId] = useState(null);
   const [guarantorStatuses, setGuarantorStatuses] = useState(["pending", "pending", "pending"]);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const draftKey = `loan-application-draft-${user?._id || "current"}`;
   const restoredDraft = useRef(false);
+  const searchRequestRef = useRef(0);
 
   // Guarantor lookup states
   const [guarantors, setGuarantors] = useState([null, null, null, null]);
@@ -98,7 +103,7 @@ export function LoanApply() {
   const watchedAmount = watch("amount");
   const watchedDuration = watch("durationMonths");
   const watchedLoanType = watch("loanType");
-  const watchedGuarantorCodes = watch("guarantorReferralCodes") || ["", "", ""];
+  const watchedGuarantorCodes = watch("guarantorReferralCodes") || ["", "", "", ""];
   const guarantorCodesKey = watchedGuarantorCodes.join("|");
 
 
@@ -111,19 +116,44 @@ export function LoanApply() {
 
 
   useEffect(() => {
-    let draft = null;
-    try {
-      draft = JSON.parse(localStorage.getItem(draftKey) || "null");
-    } catch {
-      localStorage.removeItem(draftKey);
-    }
-    if (draft) {
+    let cancelled = false;
+    // Backend draft sync (owner decision #4): server draft is the source of
+    // truth; localStorage remains an offline fallback cache.
+    const applyDraft = (draft) => {
+      if (!draft) return false;
       Object.entries(draft.values || {}).forEach(([name, value]) => setValue(name, value));
       setStep(Number.isInteger(draft.step) ? draft.step : 0);
       setApplicationLoanId(draft.loanId || null);
       setGuarantorStatuses(draft.guarantorStatuses || ["pending", "pending", "pending"]);
-    }
-    restoredDraft.current = true;
+      return true;
+    };
+
+    const restore = async () => {
+      let serverDraft = null;
+      try {
+        serverDraft = await getUserDraft("loan_application");
+      } catch {
+        serverDraft = null; // offline/API failure → localStorage fallback
+      }
+      if (cancelled || restoredDraft.current) return;
+      if (serverDraft?.data) {
+        applyDraft(serverDraft.data);
+      } else {
+        let localDraft = null;
+        try {
+          localDraft = JSON.parse(localStorage.getItem(draftKey) || "null");
+        } catch {
+          localStorage.removeItem(draftKey);
+        }
+        applyDraft(localDraft);
+      }
+      restoredDraft.current = true;
+    };
+
+    restore();
+    return () => {
+      cancelled = true;
+    };
   }, [draftKey, setValue]);
 
   useEffect(() => {
@@ -134,25 +164,36 @@ export function LoanApply() {
       } catch {
         previousDraft = null;
       }
-      localStorage.setItem(draftKey, JSON.stringify({
+      const draft = {
         step,
         values: getValues(),
         loanId: applicationLoanId || previousDraft?.loanId || null,
         guarantorStatuses,
-      }));
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+
+      // Debounced server sync (backend is the source of truth).
+      const serverSyncTimer = setTimeout(() => {
+        saveUserDraft(draft, "loan_application").catch(() => {
+          /* best-effort; localStorage already persisted the draft */
+        });
+      }, 800);
+      return () => clearTimeout(serverSyncTimer);
     }
   }, [draftKey, step, getValues, applicationLoanId, guarantorStatuses]);
 
  useEffect(() => {
   if (!existingLoan) return;
 
+  // Only statuses the backend actually produces (LoanModel enum).
   const submittedStatuses = [
     "waiting_guarantor",
     "pending_review",
-    "approved",
     "active",
-    "disbursed",
-    "repaying",
+    "warning_30_days",
+    "defaulted_60_days",
+    "restricted_90_days",
+    "recovery_120_days",
   ];
 
   // If there is an active/submitted loan application,
@@ -195,16 +236,18 @@ export function LoanApply() {
   // Only clear/reset when the previous application
   // has actually been cancelled/rejected/completed.
   if (
-    existingLoan.status === "cancelled" ||
     existingLoan.status === "rejected" ||
     existingLoan.status === "completed"
   ) {
     localStorage.removeItem(draftKey);
+    deleteUserDraft().catch(() => {
+      /* best-effort server-side clean-up */
+    });
 
     setApplicationLoanId(null);
     setSubmittedLoanData(null);
-    setGuarantorStatuses(["pending", "pending", "pending"]);
-    setGuarantors([null, null, null]);
+    setGuarantorStatuses(["pending", "pending", "pending", "pending"]);
+    setGuarantors([null, null, null, null]);
     setStep(0);
 
     reset({
@@ -218,7 +261,7 @@ export function LoanApply() {
       phone: user?.phone || "",
       address: user?.address || "",
       occupation: user?.occupation || "",
-      guarantorReferralCodes: ["", "", ""],
+      guarantorReferralCodes: ["", "", "", ""],
     });
   }
 }, [draftKey, existingLoan, reset, setValue, user]);
@@ -297,21 +340,35 @@ useEffect(() => {
 useEffect(() => {
   const cleanCodes = watchedGuarantorCodes.map((code) => (code || "").trim().toUpperCase());
   const timeout = setTimeout(async () => {
+    const requestId = ++searchRequestRef.current;
+    let cancelled = false;
     setCheckingGuarantor(true);
     const results = await Promise.all(cleanCodes.map(async (code, index) => {
       if (code.length < 3) return { guarantor: null, error: "" };
       try {
         const res = await searchGuarantor(code);
+        // Stale-response guard: discard results from superseded searches so a
+        // slow earlier response can never overwrite a newer run's state.
+        if (cancelled || requestId !== searchRequestRef.current) {
+          return { guarantor: null, error: "stale" };
+        }
         return { guarantor: res?.guarantor || res, error: "" };
       } catch (err) {
+        if (cancelled || requestId !== searchRequestRef.current) {
+          return { guarantor: null, error: "stale" };
+        }
         return { guarantor: null, error: err?.data?.message || err?.message || "Guarantor not eligible or found" };
       }
     }));
+    // Only apply results if this run is still the current/valid one.
+    if (cancelled || requestId !== searchRequestRef.current) return;
     setGuarantors(results.map((result) => result.guarantor));
     setGuarantorErrors(results.map((result) => result.error));
     setCheckingGuarantor(false);
   }, 400);
-  return () => clearTimeout(timeout);
+  return () => {
+    clearTimeout(timeout);
+  };
 }, [guarantorCodesKey]);
 
 
@@ -373,7 +430,7 @@ const allGuarantorsVerified =
   if (!hasFourUniqueCodes || !allGuarantorsVerified) {
     toast.error(
       guarantorErrors.find(Boolean) ||
-      "Please enter three valid and eligible guarantor codes."
+      "Please enter four valid and eligible guarantor codes."
     );
     return;
   }
@@ -396,6 +453,11 @@ const allGuarantorsVerified =
   const prevStep = () => setStep((s) => Math.max(s - 1, 0));
 
   const onSubmitFinal = async (data) => {
+    if (!termsAccepted || !privacyAccepted) {
+      toast.error("Please accept the Socket Monie Terms and Conditions and Privacy Policy to submit a loan application.");
+      return;
+    }
+
     if (!eligibility?.isEligible) {
       toast.error("You are currently not eligible to request a loan.");
       return;
@@ -456,6 +518,19 @@ if (res) {
       guarantorStatuses: statuses,
     })
   );
+
+  // Server-side draft sync (backend is the source of truth).
+  saveUserDraft(
+    {
+      step: 4,
+      values: data,
+      loanId: submittedLoan?._id || null,
+      guarantorStatuses: statuses,
+    },
+    "loan_application"
+  ).catch(() => {
+    /* best-effort; localStorage already persisted the draft */
+  });
 
   /*
    * IMPORTANT:
@@ -905,14 +980,12 @@ if (res) {
               )}
              <p className="text-xs text-gray-500 max-w-60 mx-auto font-medium leading-relaxed pt-1">
   {submittedLoanData?.status === "waiting_guarantor"
-    ? "Your application has been submitted. Your three guarantors have been notified and must respond."
+    ? "Your application has been submitted. Your four guarantors have been notified and must respond."
     : submittedLoanData?.status === "pending_review"
-      ? "All three guarantors have accepted your application. It is now waiting for admin review and activation."
-      : submittedLoanData?.status === "approved"
-        ? "Your loan has been approved and is ready for the next processing stage."
-        : submittedLoanData?.status === "active"
-          ? "Your loan is active. Your repayment schedule is now available."
-          : "Your loan application has been submitted successfully."}
+      ? "All four guarantors have accepted your application. It is now waiting for admin review and activation."
+      : submittedLoanData?.status === "active"
+        ? "Your loan is active. Your repayment schedule is now available."
+        : "Your loan application has been submitted successfully."}
 </p>
             </div>
 
@@ -979,7 +1052,7 @@ if (res) {
         <Clock className="size-4 text-amber-600 mt-0.5 shrink-0" />
 
         <p className="text-[10px] leading-relaxed text-amber-800">
-          Your application is waiting for all three guarantors to respond.
+          Your application is waiting for all four guarantors to respond.
           You do not need to enter their codes again.
         </p>
       </div>
@@ -990,13 +1063,13 @@ if (res) {
         <ShieldCheck className="size-4 text-blue-600 mt-0.5 shrink-0" />
 
         <p className="text-[10px] leading-relaxed text-blue-800">
-          All three guarantors have accepted your loan application.
+          All four guarantors have accepted your loan application.
           Your application has been forwarded for admin review.
         </p>
       </div>
     )}
 
-    {submittedLoanData.status === "cancelled" && (
+    {submittedLoanData?.status === "rejected" && (
       <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3">
         <XCircle className="size-4 text-red-600 mt-0.5 shrink-0" />
 
@@ -1217,7 +1290,22 @@ if (res) {
   Continue
 </Button>
               ) : (
-                <Button
+                <>
+                  {/* Terms & Conditions / Privacy Policy acceptance (mandatory) */}
+                  <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3 mb-4">
+                    <h4 className="text-xs font-bold text-gray-900">Terms &amp; Acceptance</h4>
+                    <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
+                      <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-0.5 rounded text-[#090F47] focus:ring-0" />
+                      <span>
+                        I have read and agree to the <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
+                      <input type="checkbox" checked={privacyAccepted} onChange={(e) => setPrivacyAccepted(e.target.checked)} className="mt-0.5 rounded text-[#090F47] focus:ring-0" />
+                      <span>I acknowledge the collection and processing of my information as described in the <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.</span>
+                    </label>
+                  </div>
+                  <Button
                   type="submit"
                   fullWidth
                   disabled={isOverLimit || isSubmitting}
@@ -1226,6 +1314,7 @@ if (res) {
                 >
                   Submit Application
                 </Button>
+                </>
               )}
             </div>
           )}

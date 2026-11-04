@@ -19,7 +19,9 @@ export function Withdraw() {
   const [showBalance, setShowBalance] = useState(true);
   const [amount, setAmount] = useState("");
   const { data, isLoading } = useAsync(getSavingsSummary, []);
-  const balance = Number(data?.summary?.totalSaved ?? data?.data?.totalSaved ?? 0);
+  const summary = data?.summary || data?.data || {};
+  const balance = Number(summary.availableBalance ?? summary.totalSaved ?? 0);
+  const reservedBalance = Number(summary.reservedBalance ?? 0);
   const bankDetails = user?.bankDetails || {};
   const hasBankDetails = Boolean(bankDetails.bankName && bankDetails.accountName && /^\d{10}$/.test(bankDetails.accountNumber || ""));
 

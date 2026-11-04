@@ -5,15 +5,15 @@ import { mockMember } from "@/mock/member";
 /**
  * ## Login
  * POST /api/auth/login
- * Body: { email, password }
+ * Body: { email, password, termsAccepted, privacyAccepted }
  * Response: { success, user }
  * Backend sets an httpOnly cookie — no token returned.
  */
-export async function login({ email, password }) {
+export async function login({ email, password, termsAccepted, privacyAccepted }) {
   if (USE_MOCK) {
     return mockDelay({ success: true, user: mockMember });
   }
-  return apiClient.post("/auth/login", { email, password });
+  return apiClient.post("/auth/login", { email, password, termsAccepted, privacyAccepted });
 }
 
 /**

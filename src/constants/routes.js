@@ -9,6 +9,8 @@ export const ROUTES = {
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
   VERIFY_OTP: "/verify-otp",
+  TERMS: "/terms",
+  PRIVACY: "/privacy",
 
   // Onboarding (post-signup, pre-dashboard)
   ONBOARDING_PERSONAL_INFO: "/onboarding/personal-info",
@@ -50,6 +52,7 @@ export const ROUTES = {
   ADMIN_MEMBERS: "/admin/members",
   ADMIN_LOANS: "/admin/loans",
   ADMIN_REPORTS: "/admin/reports",
+  ADMIN_AUDIT: "/admin/audit",
   WITHDRAWS:"/admin/withdraws",
 
   // Finance Manager

@@ -35,6 +35,30 @@ export async function uploadKycDocument(formData) {
 }
 
 /**
+ * ## Server-side draft sync (owner decision #4)
+ * GET /api/user/draft?kind=loan_application
+ * Response: { success, data: { draft | null } } — null when none/expired.
+ */
+export async function getUserDraft(kind = "loan_application") {
+  const res = await apiClient.get(`/user/draft?kind=${encodeURIComponent(kind)}`);
+  return res?.data?.draft || null;
+}
+
+/**
+ * PUT /api/user/draft — Body: { kind, data } (backend sanitizes forbidden keys)
+ */
+export async function saveUserDraft(data, kind = "loan_application") {
+  return apiClient.put("/user/draft", { kind, data });
+}
+
+/**
+ * DELETE /api/user/draft — clear after successful submission.
+ */
+export async function deleteUserDraft() {
+  return apiClient.delete("/user/draft");
+}
+
+/**
  * ## Set Transaction PIN
  * POST /api/user/pin
  * Body: { pin }

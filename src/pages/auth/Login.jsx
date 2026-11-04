@@ -34,6 +34,9 @@ export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -42,7 +45,12 @@ export function Login() {
 
   async function onSubmit(values) {
     try {
-      const res = await login(values);
+      const res = await login({
+        email: values.email,
+        password: values.password,
+        termsAccepted: values.termsAccepted,
+        privacyAccepted: values.privacyAccepted,
+      });
       if (res?.success) {
         toast.success(res.message || "Welcome back!");
         const userRole = res?.data?.user?.role;
@@ -112,6 +120,43 @@ export function Login() {
               <Link to={ROUTES.FORGOT_PASSWORD} className="text-sm font-semibold text-brand-600">
                 Forgot password?
               </Link>
+            </div>
+            {/* Terms & Conditions / Privacy Policy acceptance (mandatory) */}
+            <div className="space-y-3 pt-1 border-t border-gray-100">
+              <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 rounded text-[#3B62EC] focus:ring-0"
+                />
+                <span>
+                  I have read and agree to the{" "}
+                  <Link to={ROUTES.TERMS} className="font-semibold text-[#3B62EC]">
+                    Terms and Conditions
+                  </Link>{" "}
+                  and the{" "}
+                  <Link to={ROUTES.PRIVACY} className="font-semibold text-[#3B62EC]">
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={privacyAccepted}
+                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 rounded text-[#3B62EC] focus:ring-0"
+                />
+                <span>
+                  I acknowledge the collection and processing of my information as described in the{" "}
+                  <Link to={ROUTES.PRIVACY} className="font-semibold text-[#3B62EC]">
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
             </div>
             <Button type="submit" fullWidth size="lg" isLoading={isSubmitting}>
               Log In

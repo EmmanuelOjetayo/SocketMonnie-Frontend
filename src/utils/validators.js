@@ -3,6 +3,9 @@ import { z } from "zod";
 export const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
+  // Mandatory Terms & Conditions / Privacy Policy acceptance before login.
+  termsAccepted: z.boolean().refine((v) => v === true, "You must accept the Terms and Conditions and Privacy Policy to continue"),
+  privacyAccepted: z.boolean().refine((v) => v === true, "You must accept the Terms and Conditions and Privacy Policy to continue"),
 });
 
 export const registerSchema = z
