@@ -1,5 +1,4 @@
 import { apiClient } from "./apiClient";
-import { mockDelay } from "./mockDelay";
 
 /**
  * Payments & Bank Verification Service
@@ -7,44 +6,18 @@ import { mockDelay } from "./mockDelay";
  */
 
 export async function getBanks() {
-  try {
-    return await apiClient.get("/payments/banks");
-  } catch (error) {
-    console.warn("API unavailable, returning mock bank list", error);
-    await mockDelay(300);
-    return {
-      success: true,
-      data: [
-        { code: "011", name: "First Bank of Nigeria" },
-        { code: "058", name: "GTBank" },
-        { code: "033", name: "United Bank for Africa (UBA)" },
-        { code: "057", name: "Zenith Bank" },
-        { code: "044", name: "Access Bank" },
-        { code: "035", name: "Wema Bank (ALAT)" },
-        { code: "50515", name: "Moniepoint MFB" },
-        { code: "090110", name: "VFD Microfinance Bank" },
-        { code: "100004", name: "Opay (PayCom)" },
-        { code: "100033", name: "Palmpay" },
-      ],
-    };
-  }
+  return apiClient.get("/payments/banks");
 }
 
+/**
+ * Verify a customer's bank account ownership name before enabling a
+ * withdrawal destination (POST /api/payments/verify-bank).
+ * NOTE: failures must propagate — previously this swallowed API errors and
+ * returned a fabricated "MEMBER DEMO ACCOUNT" success, which would let an
+ * unverified account pass as verified. Never fabricate a verification result.
+ */
 export async function verifyBank(accountNumber, bankCode) {
-  try {
-    return await apiClient.post("/payments/verify-bank", { accountNumber, bankCode });
-  } catch (error) {
-    console.warn("API unavailable, returning mock verified account", error);
-    await mockDelay(400);
-    return {
-      success: true,
-      data: {
-        accountNumber,
-        accountName: "MEMBER DEMO ACCOUNT",
-        bankCode,
-      },
-    };
-  }
+  return apiClient.post("/payments/verify-bank", { accountNumber, bankCode });
 }
 
 
@@ -97,18 +70,16 @@ export async function verifyLoanRepayment({
   });
 }
 
+/**
+ * Legacy gateway-callback checker (GET /api/payments/deposit/callback).
+ * NOTE: this endpoint is an informational convenience only — the source of
+ * truth for settlement remains POST /api/payments/deposit/verify, which the
+ * DepositSuccess page calls. Failures must propagate; previously this
+ * swallowed errors and fabricated status:"success", which falsely reports a
+ * payment as successful without any backend proof.
+ */
 export async function paymentCallback(reference) {
-  try {
-    return await apiClient.get(`/payments/deposit/callback?reference=${reference}`);
-  } catch (error) {
-    console.warn("API unavailable, returning mock payment callback status", error);
-    await mockDelay(300);
-    return {
-      success: true,
-      status: "success",
-      reference,
-    };
-  }
+  return apiClient.get(`/payments/deposit/callback?reference=${reference}`);
 }
 
 export async function getMinutesDue() { const res = await apiClient.get( "/payments/minutes/due" ); return res?.data || res; }

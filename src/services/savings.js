@@ -36,22 +36,26 @@ export async function getMonthlySavingsReport() {
 
 /**
  * ## Make Deposit
- * POST /api/savings/deposit
+ * NOTE: aligned with the existing production flow used by the SavingsDeposit
+ * page — a savings deposit is a payment settled through the gateway, so it
+ * goes through POST /api/payments/deposit/initiate (Backend/PaymentRoutes).
+ * The SavingsRoute has no legacy /deposit endpoint.
  * Body: { amount, method: "bank_transfer" | "card" | "wallet" }
- * Response: { success, data: { transactionId, newBalance, ... } }
+ * Response: { success, data: { authorization_link / checkout payload, reference, ... } }
  */
 export async function makeDeposit({ amount, method }) {
   if (USE_MOCK) {
     return mockDelay({ success: true, transactionId: "tx_new", newBalance: mockSavingsSummary.totalSaved + Number(amount) });
   }
-  return apiClient.post("/savings/deposit", { amount, method });
+  return apiClient.post("/payments/deposit/initiate", { amount, method });
 }
 
 /**
- * ## Withdraw from Savings
- * POST /api/savings/withdraw
- * Body: { amount, method, bankDetails, pin }
- * Response: { success, data: { withdrawalId, amount, fee, totalDeducted, newBalance, method, reference, date, destinationBank } }
+ * ## Request Savings Withdrawal
+ * NOTE: withdrawals are NOT released directly. Aligns with the production
+ * withdrawal-approval flow — POST /api/savings/withdraw-request creates a
+ * Pending Withdrawal reviewed by admin (WithdrawalApprovals page).
+ * Body: { amount, bankDetails { accountNumber, accountName, bankName }, pin }
  */
 export async function withdrawFromSavings({ amount, method, bankDetails, pin }) {
   if (USE_MOCK) {
@@ -70,7 +74,8 @@ export async function withdrawFromSavings({ amount, method, bankDetails, pin }) 
       }
     });
   }
-  return apiClient.post("/savings/withdraw", { amount, method, bankDetails, pin });
+  const { accountNumber, accountName, bankName } = bankDetails || {};
+  return apiClient.post("/savings/withdraw-request", { amount, pin, accountNumber, accountName, bankName });
 }
 
 export async function requestWithdrawal({ amount, accountNumber, accountName, bankName, pin }) {

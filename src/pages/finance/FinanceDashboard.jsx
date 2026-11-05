@@ -1,4 +1,5 @@
 import { PiggyBank, Landmark, TrendingUp } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { useAsync } from "@/hooks/useAsync";
 import { getFinanceOverview } from "@/services/financeService";
