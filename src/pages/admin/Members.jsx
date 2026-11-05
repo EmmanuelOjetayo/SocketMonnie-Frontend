@@ -16,7 +16,11 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Award,
+  Sparkles,
+  ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
+import { KycDocumentPreview } from "@/components/modals/KycDocumentPreview";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";

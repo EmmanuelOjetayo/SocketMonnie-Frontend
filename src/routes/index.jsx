@@ -68,15 +68,18 @@ import { DepositFailed } from "@/pages/user/DepositFailed";
 
 
 import { NotFound } from "@/pages/NotFound";
+import { RouteError } from "@/pages/error/RouteError";
 import { Terms } from "@/pages/legal/Terms";
 import { Privacy } from "@/pages/legal/Privacy";
 
 export const router = createBrowserRouter([
   {
+    errorElement: <RouteError />,
     element: <PublicLayout />,
     children: [{ path: ROUTES.GET_STARTED, element: <GetStarted /> }],
   },
   {
+    errorElement: <RouteError />,
     element: <AuthLayout />,
     children: [
       { path: ROUTES.LOGIN, element: <Login /> },
@@ -89,6 +92,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteError />,
     element: <OnboardingLayout />,
     children: [
       { path: ROUTES.ONBOARDING_PERSONAL_INFO, element: <PersonalInfo /> },
@@ -98,6 +102,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteError />,
     element: <ProtectedRoute roles={[ROLES.MEMBER]} />,
     children: [
       {
@@ -141,6 +146,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteError />,
     element: <ProtectedRoute roles={[ROLES.SUPER_ADMIN]} />,
     children: [
       {
@@ -158,6 +164,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteError />,
     element: <ProtectedRoute roles={[ROLES.FINANCE_MANAGER]} />,
     children: [
       {
@@ -167,6 +174,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    errorElement: <RouteError />,
     element: <ProtectedRoute roles={[ROLES.CUSTOMER_SUPPORT]} />,
     children: [
       {

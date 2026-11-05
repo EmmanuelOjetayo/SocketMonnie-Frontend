@@ -1,49 +1,20 @@
-import { useState } from "react";
-import toast from "react-hot-toast";
-import { ShieldCheck, Send } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { ShieldCheck } from "lucide-react";
 import { Badge, statusToBadgeProps } from "@/components/ui/Badge";
 import { useAsync } from "@/hooks/useAsync";
-import { getGuarantorByLoan, requestGuarantor } from "@/services/guarantor";
+import { getGuarantorByLoan } from "@/services/guarantor";
 
-const RELATIONSHIPS = ["Spouse", "Sibling", "Parent", "Friend", "Colleague", "Other"];
-
+/**
+ * Read-only guarantor status for a loan.
+ *
+ * NOTE: guarantor invitations are NOT created here. Per business policy,
+ * the 4 guarantors are selected by referral code during loan application
+ * (POST /api/loans/apply), and a rejected/expired guarantor is replaced
+ * via POST /api/loans/:loanId/replace-guarantor (see LoanDetails).
+ * The backend exposes no "invite a new guarantor by name/email" endpoint.
+ */
 export function GuarantorStatusCard({ loanId }) {
-  const { data, isLoading, refetch } = useAsync(() => getGuarantorByLoan(loanId), [loanId]);
+  const { data, isLoading } = useAsync(() => getGuarantorByLoan(loanId), [loanId]);
   const guarantor = data?.data;
-
-  const [showForm, setShowForm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    guarantorName: "",
-    guarantorEmail: "",
-    guarantorPhone: "",
-    relationship: RELATIONSHIPS[0],
-  });
-
-  function updateField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.guarantorName || !form.guarantorEmail || !form.guarantorPhone) {
-      toast.error("Please fill in all guarantor details.");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await requestGuarantor({ loanId, ...form });
-      toast.success("Guarantor invitation sent!");
-      setShowForm(false);
-      refetch();
-    } catch (error) {
-      toast.error(error?.data?.message || "Could not send guarantor request.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
 
   if (isLoading) return null;
 
@@ -70,54 +41,10 @@ export function GuarantorStatusCard({ loanId }) {
             </p>
           )}
         </div>
-      ) : showForm ? (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <Input
-            label="Guarantor's Full Name"
-            value={form.guarantorName}
-            onChange={(e) => updateField("guarantorName", e.target.value)}
-          />
-          <Input
-            label="Guarantor's Email"
-            type="email"
-            value={form.guarantorEmail}
-            onChange={(e) => updateField("guarantorEmail", e.target.value)}
-          />
-          <Input
-            label="Guarantor's Phone"
-            value={form.guarantorPhone}
-            onChange={(e) => updateField("guarantorPhone", e.target.value)}
-          />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-text-secondary">Relationship</label>
-            <select
-              value={form.relationship}
-              onChange={(e) => updateField("relationship", e.target.value)}
-              className="h-12 w-full rounded-control border border-border bg-card px-4 text-[15px] text-text-primary focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              {RELATIONSHIPS.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" fullWidth onClick={() => setShowForm(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" fullWidth isLoading={isSubmitting} icon={Send}>
-              Send Invite
-            </Button>
-          </div>
-        </form>
       ) : (
-        <>
-          <p className="text-sm text-text-muted">
-            No guarantor has been added for this loan yet.
-          </p>
-          <Button variant="secondary" fullWidth onClick={() => setShowForm(true)}>
-            Add a Guarantor
-          </Button>
-        </>
+        <p className="text-sm text-text-muted">
+          Guarantor details will appear here once you confirm them during the loan application.
+        </p>
       )}
     </div>
   );
