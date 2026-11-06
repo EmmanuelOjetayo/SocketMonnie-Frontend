@@ -14,6 +14,7 @@ const STATUS_OPTIONS = [
   ["pending_review", "Pending Review"],
   ["active", "Active"],
   ["completed", "Completed"],
+  ["withdrawn", "Withdrawn"],
   ["rejected", "Rejected"],
   ["defaulted_60_days", "Defaulted"],
 ];
@@ -29,6 +30,7 @@ function getDate(loan) {
 
 function statusClasses(status) {
   if (status === "active" || status === "completed") return "bg-emerald-100 text-emerald-700";
+  if (status === "withdrawn") return "bg-gray-100 text-gray-500";
   if (status.includes("default") || status === "rejected") return "bg-red-100 text-red-600";
   return "bg-amber-100 text-amber-700";
 }

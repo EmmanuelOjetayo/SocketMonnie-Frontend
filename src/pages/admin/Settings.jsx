@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { TopHeader } from "@/components/navigation/TopHeader";
 import { Save } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -153,6 +154,69 @@ export function AdminSettings() {
               value={settings.latePenaltyRate}
               onChange={(e) => setSettings({ ...settings, latePenaltyRate: parseFloat(e.target.value) || 0 })}
             />
+          </div>
+        </div>
+      </Card>
+
+      {/* Referral Rewards */}
+      <Card className="p-4">
+        <h2 className="text-sm font-bold text-[#090f24]">Referral Rewards</h2>
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="text-xs text-gray-500">Referrer Reward (₦)</label>
+            <Input
+              type="number"
+              value={settings.referralReward?.referrerAmount ?? 500}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  referralReward: {
+                    ...(settings.referralReward || {}),
+                    referrerAmount: parseFloat(e.target.value) || 0,
+                  },
+                })
+              }
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Referred User Reward (₦)</label>
+            <Input
+              type="number"
+              value={settings.referralReward?.referredUserAmount ?? 0}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  referralReward: {
+                    ...(settings.referralReward || {}),
+                    referredUserAmount: parseFloat(e.target.value) || 0,
+                  },
+                })
+              }
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs text-gray-500">Qualification Event</label>
+            <select
+              className="w-full rounded-2xl border border-[#bdc8f3]/40 bg-white px-3 py-2 text-xs font-semibold text-[#090f24] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
+              value={settings.referralReward?.qualificationEvent || "membership_fee_paid"}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  referralReward: {
+                    ...(settings.referralReward || {}),
+                    qualificationEvent: e.target.value,
+                  },
+                })
+              }
+            >
+              <option value="membership_fee_paid">Membership Fee Paid</option>
+              <option value="first_deposit">First Deposit</option>
+              <option value="kyc_approved">KYC Approved</option>
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              The referral is qualified (and the referrer&rsquo;s reward enters pending
+              payout) when the referred member completes this event.
+            </p>
           </div>
         </div>
       </Card>

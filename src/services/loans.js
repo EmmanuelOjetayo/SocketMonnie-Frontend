@@ -2,8 +2,8 @@ import { apiClient } from "./apiClient";
 
 /**
  * ## Get Loan Eligibility
- * GET /api/loans/eligibility
- * Response: { isEligible, netSavings, maxLoanAmount, tierName, completedLoansCount, isConsistent, meetsSavingsThreshold }
+ * GET /api/loans/eligibility?loanType=
+ * Response: { success, eligibility: { isEligible, netSavings, maxLoanAmount, tierName, completedLoansCount, isConsistent, meetsSavingsThreshold } }
  */
 export async function getLoanEligibility() {
   const res = await apiClient.get("/loans/eligibility");
@@ -68,8 +68,10 @@ export async function getRepaymentSchedule(loanId) {
 /**
  * ## Apply for Loan
  * POST /api/loans/apply
- * Body: { amount, durationMonths, loanType, disbursementMethod, purpose }
- * Response: { success, loan }
+ * Body: { amount, durationMonths, loanType, disbursementMethod, purpose, guarantorReferralCodes }
+ *   — 4 unique referral codes required (Backend LoanValidate.applyLoanSchema).
+ * Response: { success, message, loan } — message confirms the application is
+ * awaiting the 4 guarantors' confirmation.
  */
 export async function applyForLoan(payload) {
   const res = await apiClient.post("/loans/apply", payload);
@@ -81,8 +83,24 @@ export async function applyForLoan(payload) {
 }
 
 /**
- * ## Repay Loan
- * POST /api/loans/repay
- * Body: { loanId, paymentAmount }
- * Response: { success, loan }
+ * ## Withdraw Loan Application
+ * POST /api/loans/:loanId/cancel
+ * Body: { reason? } — only valid while the loan status is "waiting_guarantor".
+ * Response: { success, message, loan }
+ */
+export async function cancelLoanApplication(loanId, reason = "") {
+  const res = await apiClient.post(`/loans/${loanId}/cancel`, { reason });
+  return {
+    message: res.message,
+    loan: res.loan,
+  };
+}
+
+/**
+ * NOTE: Loan repayment is a two-step gateway flow served from
+ * services/payments.js, not this module:
+ *   1. POST /api/loans/repay/initialize  (initiateLoanRepayment — Flutterwave checkout payload)
+ *   2. POST /api/loans/repay/verify      (verifyLoanRepayment — settles against webhook proof)
+ * This module intentionally has no repay function; no POST /api/loans/repay
+ * endpoint exists on the backend.
  */

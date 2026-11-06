@@ -40,6 +40,7 @@ export function statusToBadgeProps(status) {
     defaulted: { variant: "danger", label: "Defaulted" },
     warning_30_days: { variant: "warning", label: "Warning (30d)" },
     defaulted_60_days: { variant: "danger", label: "Defaulted (60d)" },
+    withdrawn: { variant: "neutral", label: "Withdrawn" },
   };
   return map[status] || { variant: "neutral", label: status };
 }

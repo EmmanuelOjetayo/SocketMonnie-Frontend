@@ -26,7 +26,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { loanApplicationSchema } from "@/utils/validators";
-import { applyForLoan, getLoanEligibility, getActiveLoan } from "@/services/loans";
+import { applyForLoan, getLoanEligibility, getActiveLoan, cancelLoanApplication } from "@/services/loans";
 import { searchGuarantor } from "@/services/guarantor";
 import { getUserDraft, saveUserDraft, deleteUserDraft, acceptTerms } from "@/services/user";
 import { LOAN_DURATIONS, LOAN_TYPES, DISBURSEMENT_METHODS } from "@/constants/config";
@@ -73,6 +73,37 @@ export function LoanApply() {
  
  
   const { data: existingLoan, refetch: refetchExistingLoan } = useAsync(getActiveLoan, []);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  // Workflow D: guaranteed exit from "waiting_guarantor" — withdraw the
+  // application, which closes the pending guarantor requests server-side.
+  const handleWithdrawApplication = async () => {
+    const loanId = submittedLoanData?._id || applicationLoanId;
+    if (!loanId || withdrawing) return;
+    if (
+      !window.confirm(
+        "Withdraw this loan application? The pending guarantor requests will be closed and you can apply again later."
+      )
+    ) {
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const res = await cancelLoanApplication(loanId, "Withdrawn by applicant");
+      toast.success(res?.message || "Loan application withdrawn.");
+      setSubmittedLoanData(res?.loan || null);
+      setApplicationLoanId(null);
+      refetchExistingLoan();
+      localStorage.removeItem(draftKey);
+      deleteUserDraft().catch(() => {});
+    } catch (error) {
+      toast.error(
+        error?.data?.message || "Could not withdraw the loan application. Please try again."
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const {
     register,
@@ -990,7 +1021,9 @@ if (res) {
       ? "All four guarantors have accepted your application. It is now waiting for admin review and activation."
       : submittedLoanData?.status === "active"
         ? "Your loan is active. Your repayment schedule is now available."
-        : "Your loan application has been submitted successfully."}
+        : submittedLoanData?.status === "withdrawn"
+          ? "Your loan application has been withdrawn. The pending guarantor requests were closed. You can apply again whenever you are ready."
+          : "Your loan application has been submitted successfully."}
 </p>
             </div>
 
@@ -1053,12 +1086,27 @@ if (res) {
     </div>
 
     {submittedLoanData.status === "waiting_guarantor" && (
-      <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3">
-        <Clock className="size-4 text-amber-600 mt-0.5 shrink-0" />
+      <div className="space-y-3">
+        <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <Clock className="size-4 text-amber-600 mt-0.5 shrink-0" />
 
-        <p className="text-[10px] leading-relaxed text-amber-800">
-          Your application is waiting for all four guarantors to respond.
-          You do not need to enter their codes again.
+          <p className="text-[10px] leading-relaxed text-amber-800">
+            Your application is waiting for all four guarantors to respond.
+            You do not need to enter their codes again.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWithdrawApplication}
+          disabled={withdrawing}
+          className="w-full py-2.5 px-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 font-semibold text-xs hover:bg-rose-100 disabled:opacity-60 transition-colors"
+        >
+          {withdrawing ? "Withdrawing…" : "Withdraw Application"}
+        </button>
+        <p className="text-[10px] text-gray-400 text-center leading-relaxed">
+          Withdrawing closes the pending guarantor requests and lets you apply
+          again later.
         </p>
       </div>
     )}

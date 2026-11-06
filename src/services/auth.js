@@ -19,7 +19,8 @@ export async function login({ email, password, termsAccepted, privacyAccepted })
 /**
  * ## Register
  * POST /api/auth/register
- * Body: { fullName, email, phone, referralCode, password }
+ * Body: { fullName, email, phone, referralCode, password, termsAccepted, privacyAccepted }
+ *   — both consent flags are required by the backend signUpSchema (Batch F).
  * Response: { success, userId, ... }
  */
 export async function register(payload) {

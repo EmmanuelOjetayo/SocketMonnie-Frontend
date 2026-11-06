@@ -33,10 +33,13 @@ export const personalInfoSchema = z.object({
   monthlySavingsCommitment: z.coerce.number().min(5000, "Minimum monthly savings commitment is ₦5,000"),
 });
 
+// Mirrors Backend/Middleware/LoanValidate.js applyLoanSchema exactly:
+// amount min 100, duration 1–12 whole months, purpose optional (may be
+// empty on the backend), four unique guarantor referral codes.
 export const loanApplicationSchema = z.object({
-  amount: z.coerce.number().positive("Enter a loan amount"),
-  durationMonths: z.coerce.number().min(1, "Select repayment duration"),
-  purpose: z.string().min(3, "Tell us what the loan is for"),
+  amount: z.coerce.number().positive("Enter a loan amount").min(100, "Minimum loan amount is ₦100"),
+  durationMonths: z.coerce.number().int("Select repayment duration").min(1, "Select repayment duration").max(12, "Maximum repayment duration is 12 months"),
+  purpose: z.string().optional(),
   loanType: z.enum(["cooperative", "emergency", "personal", "business"], { message: "Select a loan type" }),
   disbursementMethod: z.enum(["bank_transfer", "wallet"], { message: "Select a disbursement method" }),
   guarantorReferralCodes: z.array(z.string().min(4, "Enter a referral code")).length(4, "Four guarantor codes are required"),

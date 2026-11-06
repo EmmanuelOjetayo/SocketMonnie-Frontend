@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { 
+import {
   Calendar, 
   Clock, 
   ClipboardList, 
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  Ban,
   HelpCircle, Wallet, HandCoins, Star, Award
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -375,6 +376,8 @@ const metrics = calculateLoanMetrics(activeLoan); // pass active or selected loa
                       status === "active" ||
                       status === "completed";
 
+                    const isWithdrawn = status === "withdrawn";
+
                     const isDeclined =
                       status === "rejected" ||
                       status === "defaulted_60_days" ||
@@ -400,6 +403,8 @@ const metrics = calculateLoanMetrics(activeLoan); // pass active or selected loa
                                 ? "bg-rose-50 text-rose-500"
                                 : isApproved
                                 ? "bg-[#E8F8F0] text-[#10B981]"
+                                : isWithdrawn
+                                ? "bg-gray-100 text-gray-400"
                                 : "bg-amber-50 text-amber-600"
                             }`}
                           >
@@ -407,6 +412,8 @@ const metrics = calculateLoanMetrics(activeLoan); // pass active or selected loa
                               <CheckCircle2 className="size-5" />
                             ) : isDeclined ? (
                               <AlertCircle className="size-5" />
+                            ) : isWithdrawn ? (
+                              <Ban className="size-5" />
                             ) : (
                               <HelpCircle className="size-5" />
                             )}
@@ -431,6 +438,8 @@ const metrics = calculateLoanMetrics(activeLoan); // pass active or selected loa
                                 ? "bg-[#E8F8F0] text-[#10B981]"
                                 : isDeclined
                                 ? "bg-rose-50 text-rose-500"
+                                : isWithdrawn
+                                ? "bg-gray-100 text-gray-500"
                                 : "bg-amber-50 text-amber-600"
                             }`}
                           >

@@ -183,6 +183,7 @@ export function AdminLoans() {
               <option value="waiting_guarantor">Waiting for Guarantor</option>
               <option value="active">Active (Disbursed)</option>
               <option value="completed">Completed</option>
+              <option value="withdrawn">Withdrawn</option>
               <option value="rejected">Rejected</option>
               <option value="warning_30_days">Warning (30d)</option>
               <option value="defaulted_60_days">Defaulted (60d)</option>
