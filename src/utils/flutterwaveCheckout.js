@@ -75,6 +75,17 @@ export async function payWithFlutterwave({
       ? [{ id: String(subaccount_id).trim() }]
       : undefined;
 
+  // Build the customer object from an ALLOWLIST of the three documented
+  // fields. Passing the backend's `customer` payload through wholesale can
+  // leak extra keys (e.g. `_id`, `id`) that Flutterwave's strict validator
+  // rejects — surfacing as `key customer.id must not contain '.'` on the
+  // SDK's telemetry endpoint. Only ever send what the SDK documents.
+  const safeCustomer = {
+    email: customer.email,
+    name: customer.name,
+    phone_number: customer.phone_number || customer.phone || customer.phonenumber || "",
+  };
+
   return new Promise((resolve, reject) => {
     try {
       window.FlutterwaveCheckout({
@@ -84,11 +95,7 @@ export async function payWithFlutterwave({
         currency,
         payment_options: paymentOptions,
         ...(subaccounts ? { subaccounts } : {}),
-        customer: {
-          email: customer.email,
-          name: customer.name,
-          phone_number: customer.phone_number || customer.phone || "",
-        },
+        customer: safeCustomer,
         meta: mergedMeta,
         customizations: {
           title: customizations.title || "SocketMonnie",
@@ -100,6 +107,23 @@ export async function payWithFlutterwave({
           // { status, transaction_id, transactionId, tx_ref, txRef, ... }.
           // Normalize field names and status so callers always get
           // snake_case keys and a canonical "successful" status.
+          //
+          // A `flw_ref` starting with "FLW-MOCK" (or "MockFLWRef") means the
+          // SDK ran against Flutterwave's SANDBOX mock flow — i.e. the
+          // checkout was opened with test credentials or mismatched
+          // public/secret key modes. Such payments are never real money and
+          // the backend verification will correctly reject them; surface a
+          // clear configuration error instead of a confusing generic one.
+          const rawFlwRef = String(response?.flw_ref || response?.flwRef || "");
+          if (/^(FLW-MOCK|MockFLWRef)/i.test(rawFlwRef)) {
+            reject(
+              new Error(
+                "This payment was processed in Flutterwave TEST mode and cannot be completed. The site needs live Flutterwave keys (public + secret from the same environment) to accept real payments."
+              )
+            );
+            return;
+          }
+
           const normalized = {
             ...response,
             status:
