@@ -410,6 +410,11 @@ export function Profile() {
       String(bank?.code || "").includes(bankQuery.trim())
   );
 
+  // Show the typed search query when present, otherwise fall back to the
+  // selected bank name — prevents the selection from visually disappearing
+  // after a dropdown pick clears the search query.
+  const bankDisplayValue = bankQuery.trim() ? bankQuery : bankDetails.bankName || "";
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       {/* BRAND HEADER MATCHING TOPHEADER DESIGN */}
@@ -639,7 +644,7 @@ export function Profile() {
                 <Input
                   label="Bank"
                   placeholder="Search bank (e.g. GTBank)"
-                  value={bankQuery}
+                  value={bankDisplayValue}
                   onChange={(e) => {
                     setBankQuery(e.target.value);
                     setBankOpen(true);
