@@ -43,6 +43,7 @@ export const ROUTES = {
   MINUTES: "/minutes",
   MINUTES_SUCCESS: "/minutes/success",
   REPORTS: "/dashboard/reports",
+  TRANSACTIONS: "/dashboard/transactions",
   NOTIFICATIONS: "/dashboard/notifications",
   PROFILE: "/dashboard/profile",
   GUARANTOR_VERIFY: "/guarantor/verify/:token",

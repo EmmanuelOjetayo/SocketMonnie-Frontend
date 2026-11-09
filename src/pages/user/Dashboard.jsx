@@ -22,6 +22,7 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { getSavingsSummary, getSavingsHistory } from "@/services/savings";
+import { getTransactions } from "@/services/transactions";
 import { getLoanEligibility, getActiveLoan } from "@/services/loans";
 import { formatNaira, getScoreRating } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
@@ -97,6 +98,11 @@ export function Dashboard() {
     () => getSavingsHistory({ page: 1, limit: 50 }),
     []
   );
+  // Unified transaction history (savings / minutes / membership / loan)
+  const { data: txRes, isLoading: loadingTx } = useAsync(
+    () => getTransactions({ page: 1, limit: 50 }),
+    []
+  );
   const { data: eligibilityRes, isLoading: loadingEligibility } = useAsync(getLoanEligibility, []);
   const { data: activeLoanRes } = useAsync(getActiveLoan, []);
   const { data: notificationsRes } = useAsync(getNotifications, []);
@@ -115,6 +121,15 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
     if (Array.isArray(historyRes)) return historyRes;
     return [];
   }, [historyRes]);
+
+  // Unified transactions for the Recent Transactions card — one list across
+  // savings, minutes, membership and loan payments.
+  const recentTxList = useMemo(() => {
+    if (Array.isArray(txRes?.transactions)) return txRes.transactions;
+    if (Array.isArray(txRes?.data?.transactions)) return txRes.data.transactions;
+    if (Array.isArray(txRes?.data)) return txRes.data;
+    return [];
+  }, [txRes]);
 
   const totalSaved = summary?.totalSaved ?? 0;
   const streakMonths = summary?.streakMonths ?? 0;
@@ -254,29 +269,28 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
         <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold text-[#090f24] tracking-tight">Recent Transactions</h3>
-            <Link to={ROUTES.REPORTS} className="text-[11px] font-semibold text-[#3b5bdb] hover:underline">
+            <Link to={ROUTES.TRANSACTIONS} className="text-[11px] font-semibold text-[#3b5bdb] hover:underline">
               See All
             </Link>
           </div>
           <hr className="border-[#dee3f9] mb-2" />
 
-          {loadingHistory ? (
+          {loadingTx ? (
             <LoadingState rows={3} />
-          ) : historyList.length === 0 ? (
+          ) : recentTxList.length === 0 ? (
             <EmptyState title="No transactions yet" />
           ) : (
             <div className="max-h-[160px] overflow-y-auto pr-1 divide-y divide-[#dee3f9]/50 scrollbar-thin scrollbar-thumb-gray-200">
-              {historyList.map((tx, idx) => {
-                const { label, direction, amount } = getTxDisplayProps(tx);
-                const rawDate = tx.date || tx.createdAt || tx.created_at || tx.$createdAt;
-                const formattedDate = rawDate ? rawDate.split("T")[0] : "";
+              {recentTxList.map((tx, idx) => {
+                const rawDate = tx.date || tx.createdAt || tx.paidAt;
+                const formattedDate = rawDate ? String(rawDate).split("T")[0] : "";
 
                 return (
                   <TransactionRow
-                    key={tx.id || tx._id || tx.$id || idx}
-                    label={label}
-                    amount={amount}
-                    direction={direction}
+                    key={tx.id || tx._id || idx}
+                    label={tx.label || "Transaction"}
+                    amount={tx.direction === "debit" ? -Math.abs(tx.amount) : Math.abs(tx.amount)}
+                    direction={tx.direction || "credit"}
                     date={formattedDate}
                   />
                 );

@@ -265,7 +265,7 @@ export function Savings() {
         <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold text-[#090f24] tracking-tight">Recent Transaction</h3>
-            <Link to={ROUTES.REPORTS} className="text-[11px] font-semibold text-[#3b5bdb] hover:underline">
+            <Link to={ROUTES.TRANSACTIONS} className="text-[11px] font-semibold text-[#3b5bdb] hover:underline">
               See All
             </Link>
           </div>

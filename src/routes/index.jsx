@@ -41,6 +41,7 @@ import { LoanHistory } from "@/pages/user/LoanHistory";
 import { LoansTracker } from "@/pages/user/LoansTracker";
 import { LoanRepaySuccess } from "@/pages/user/LoanRepaySuccess";
 import { Reports } from "@/pages/user/Reports";
+import { Transactions } from "@/pages/user/Transactions";
 import { Notifications } from "@/pages/user/Notifications";
 import { Profile } from "@/pages/user/Profile";
 import { Complaints } from "@/pages/user/Complaints";
@@ -116,6 +117,7 @@ export const router = createBrowserRouter([
           { path: ROUTES.LOANS, element: <Loans /> },
           { path: ROUTES.LOAN_TRACKER, element: <LoansTracker /> },
           { path: ROUTES.REPORTS, element: <Reports /> },
+          { path: ROUTES.TRANSACTIONS, element: <Transactions /> },
           { path: ROUTES.PROFILE, element: <Profile /> },
         ],
       },
