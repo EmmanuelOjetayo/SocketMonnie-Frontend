@@ -201,7 +201,14 @@ export function Minutes() {
           toast.success(
             "Your SocketMinutes contributions have been cleared successfully!"
           );
-          navigate(ROUTES.SAVINGS_DEPOSIT);
+          navigate(ROUTES.MINUTES_SUCCESS, {
+            state: {
+              amount: totalPayable,
+              reference: paymentReference,
+              transactionId,
+              monthsSettled: Number(verifyResponse?.monthsSettled) || 1,
+            },
+          });
         } else {
           console.error(
             "Unexpected verification response:",

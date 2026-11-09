@@ -50,6 +50,9 @@ import { LoanRepay } from "@/pages/user/LoanRepay";
 import { MembershipFee } from "@/pages/user/MembershipFee";
 import { GuarantorVerify } from "@/pages/user/GuarantorVerify";
 import { Minutes} from "@/pages/user/Minutes";
+import { MinutesSuccessPage } from "@/pages/user/MinutesSuccessPage";
+import { MembershipSuccessPage } from "@/pages/user/MembershipSuccessPage";
+import { CompleteLoanRepayment } from "@/pages/user/CompleteLoanRepayment";
 // Admin
 import { AdminDashboard } from "@/pages/admin/Dashboard";
 import { AdminMembers } from "@/pages/admin/Members";
@@ -124,7 +127,9 @@ export const router = createBrowserRouter([
           { path: ROUTES.PAYMENTS_SAVINGS_SUCCESS, element: <DepositSuccess /> },
           { path: ROUTES.PAYMENTS_SAVINGS_FAILED, element: <DepositFailed /> },
           { path: ROUTES.MEMBERSHIP_FEE, element: <MembershipFee /> },
+          { path: ROUTES.MEMBERSHIP_SUCCESS, element: <MembershipSuccessPage /> },
           { path: ROUTES.MINUTES, element: <Minutes /> },
+          { path: ROUTES.MINUTES_SUCCESS, element: <MinutesSuccessPage /> },
           
           { path: ROUTES.SAVINGS_WITHDRAW, element: <Withdraw /> },
           { path: ROUTES.SAVINGS_WITHDRAW_CONFIRM, element: <ConfirmWithdrawal /> },
@@ -135,6 +140,7 @@ export const router = createBrowserRouter([
           { path: ROUTES.LOAN_DETAILS, element: <LoanDetails /> },
           { path: ROUTES.LOAN_HISTORY, element: <LoanHistory /> },
           { path: ROUTES.LOAN_REPAY_SUCCESS, element: <LoanRepaySuccess /> },
+          { path: ROUTES.LOAN_COMPLETE_SUCCESS, element: <CompleteLoanRepayment /> },
           { path: ROUTES.NOTIFICATIONS, element: <Notifications /> },
           { path: ROUTES.COMPLAINTS, element: <Complaints /> },
           { path: ROUTES.SOCKET_SCORE, element: <SocketScore /> },

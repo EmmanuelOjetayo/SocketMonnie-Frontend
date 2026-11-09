@@ -95,7 +95,7 @@ export function LoanRepay() {
 
       toast.success("Loan repayment successful.");
 
-      navigate(ROUTES.LOAN_REPAY_SUCCESS, {
+      navigate(ROUTES.LOAN_COMPLETE_SUCCESS, {
         state: {
           amount: paymentAmount,
           method: selectedMethod,

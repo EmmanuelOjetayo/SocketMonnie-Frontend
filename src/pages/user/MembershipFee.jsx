@@ -68,7 +68,12 @@ export function MembershipFee() {
 
         if (verifyRes?.success) {
           toast.success("Membership confirmed. You can now access savings and loans.");
-          navigate(ROUTES.SAVINGS_DEPOSIT || "/dashboard");
+          navigate(ROUTES.MEMBERSHIP_SUCCESS, {
+            state: {
+              amount: totalPayable,
+              reference: responseReference,
+            },
+          });
         } else {
           toast.error(verifyRes?.message || "Membership verification failed.");
         }
