@@ -27,6 +27,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { formatNaira } from "@/utils/format";
 import { getSavingsSummary } from "@/services/savings";
 import { getActiveLoan } from "@/services/loans";
+import { getBanks, verifyBank } from "@/services/payments";
 import {
   updatePersonalInfo,
   updateBankDetails,
@@ -88,6 +89,18 @@ export function Profile() {
   });
   const [isSavingBank, setIsSavingBank] = useState(false);
 
+  // Bank selection + account auto-resolution state (searchable bank dropdown)
+  const [banks, setBanks] = useState([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [banksError, setBanksError] = useState(null);
+  const [bankQuery, setBankQuery] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
+  const [resolvingAccount, setResolvingAccount] = useState(false);
+  const [accountVerified, setAccountVerified] = useState(false);
+  const [resolvedAccountName, setResolvedAccountName] = useState("");
+  const [verificationError, setVerificationError] = useState(null);
+  const [confirmSave, setConfirmSave] = useState(false);
+
   // 3. KYC Upload
   const [kycData, setKycData] = useState({
     documentType: "nin",
@@ -131,6 +144,32 @@ export function Profile() {
     }
   }, [user]);
 
+  // Load the searchable list of Nigerian banks whenever the bank modal opens.
+  useEffect(() => {
+    if (activeModal !== "bank") return;
+
+    let cancelled = false;
+    const loadBanks = async () => {
+      setBanksLoading(true);
+      setBanksError(null);
+      try {
+        const res = await getBanks();
+        if (!cancelled) setBanks(Array.isArray(res?.data) ? res.data : []);
+      } catch (error) {
+        if (!cancelled) {
+          setBanksError(error?.data?.message || error?.message || "Failed to load banks");
+        }
+      } finally {
+        if (!cancelled) setBanksLoading(false);
+      }
+    };
+
+    loadBanks();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModal]);
+
   // --- API Handlers ---
   async function handleSavePersonalInfo() {
     setIsSavingInfo(true);
@@ -159,14 +198,91 @@ export function Profile() {
     }
   }
 
+  /**
+   * Auto-resolve the account name via the backend (POST /api/payments/verify-bank)
+   * whenever a full 10-digit account number + a selected bank are present.
+   * Stores the resolved name and flags `accountVerified` for explicit confirmation.
+   */
+  async function resolveAccount(accountNumber, bankCode) {
+    if (!bankCode) {
+      setVerificationError("Please select a bank before verifying the account.");
+      return;
+    }
+    setResolvingAccount(true);
+    setVerificationError(null);
+    try {
+      const res = await verifyBank(accountNumber, bankCode);
+      const resolved = res?.data || {};
+      if (res?.success && resolved.accountName) {
+        const name = resolved.accountName;
+        setResolvedAccountName(name);
+        setBankDetails((d) => ({ ...d, accountName: name, bankCode }));
+        setAccountVerified(true);
+        setConfirmSave(false);
+      } else {
+        setAccountVerified(false);
+        setResolvedAccountName("");
+        setBankDetails((d) => ({ ...d, accountName: "" }));
+        setVerificationError(
+          res?.message || "Account could not be verified. Please check the account number and bank selection."
+        );
+      }
+    } catch (error) {
+      setAccountVerified(false);
+      setResolvedAccountName("");
+      setBankDetails((d) => ({ ...d, accountName: "" }));
+      setVerificationError(
+        error?.data?.message || error?.message || "Account verification failed. Please try again."
+      );
+    } finally {
+      setResolvingAccount(false);
+    }
+  }
+
+  function handleBankSelect(bank) {
+    const code = bank?.code || bankDetails.bankCode;
+    setBankDetails((d) => ({ ...d, bankName: bank?.name, bankCode: code }));
+    setBankQuery("");
+    setBankOpen(false);
+    // Re-run resolution for the newly selected bank, if an account number is already typed.
+    const acct = bankDetails.accountNumber;
+    setAccountVerified(false);
+    setResolvedAccountName("");
+    setConfirmSave(false);
+    if (acct && acct.length === 10) {
+      resolveAccount(acct, code);
+    }
+  }
+
+  function handleAccountNumberChange(value) {
+    const digits = value.replace(/\D/g, "");
+    setBankDetails((d) => ({ ...d, accountNumber: digits }));
+    setAccountVerified(false);
+    setConfirmSave(false);
+    setResolvedAccountName("");
+    setVerificationError(null);
+    if (digits.length === 10) {
+      resolveAccount(digits, bankDetails.bankCode);
+    }
+  }
+
   async function handleSaveBankDetails() {
-    if (!bankDetails.bankName || !bankDetails.accountName || bankDetails.accountNumber.length !== 10) {
+    if (!bankDetails.bankName || !resolvedAccountName || bankDetails.accountNumber.length !== 10) {
       toast.error("Please enter valid 10-digit account details");
+      return;
+    }
+    if (!confirmSave) {
+      toast.error("Please confirm the resolved account name before saving");
       return;
     }
     setIsSavingBank(true);
     try {
-      const res = await updateBankDetails(bankDetails);
+      const res = await updateBankDetails({
+        bankName: bankDetails.bankName,
+        bankCode: bankDetails.bankCode,
+        accountName: resolvedAccountName,
+        accountNumber: bankDetails.accountNumber,
+      });
       if (res?.success) {
         if (res.data?.user) setUser(res.data.user);
         toast.success(res.message || "Bank details updated successfully!");
@@ -286,6 +402,13 @@ export function Profile() {
       action: () => setActiveModal("pin"),
     },
   ];
+
+  // Client-side filter over the fetched Nigerian bank list (name + code search).
+  const filteredBanks = banks.filter(
+    (bank) =>
+      (bank?.name || "").toLowerCase().includes(bankQuery.trim().toLowerCase()) ||
+      String(bank?.code || "").includes(bankQuery.trim())
+  );
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -511,25 +634,76 @@ export function Profile() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <Input
-                label="Bank Name"
-                placeholder="e.g. GTBank"
-                value={bankDetails.bankName}
-                onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-              />
+              {/* Searchable bank dropdown — all Nigerian banks with their FLW code */}
+              <div className="relative">
+                <Input
+                  label="Bank"
+                  placeholder="Search bank (e.g. GTBank)"
+                  value={bankQuery}
+                  onChange={(e) => {
+                    setBankQuery(e.target.value);
+                    setBankOpen(true);
+                  }}
+                  onFocus={() => setBankOpen(true)}
+                  onBlur={() => setBankOpen(false)}
+                />
+                {bankOpen && (
+                  <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-2xl border border-gray-100 bg-white shadow-xl">
+                    {banksLoading ? (
+                      <p className="p-4 text-sm text-gray-500">Loading banks…</p>
+                    ) : banksError ? (
+                      <p className="p-4 text-sm text-red-600">{banksError}</p>
+                    ) : filteredBanks.length === 0 ? (
+                      <p className="p-4 text-sm text-gray-500">No banks found.</p>
+                    ) : (
+                      filteredBanks.map((bank) => (
+                        <button
+                          key={bank.id || bank.code}
+                          type="button"
+                          onMouseDown={(e) => {
+                            // prevent blur-closing before the click registers
+                            e.preventDefault();
+                            handleBankSelect(bank);
+                          }}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-gray-50"
+                        >
+                          <span className="font-semibold text-gray-900">{bank.name}</span>
+                          <span className="text-xs font-bold text-gray-600">{bank.code}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
               <Input
                 label="Account Number"
                 placeholder="10-digit Account Number"
                 maxLength={10}
+                inputMode="numeric"
                 value={bankDetails.accountNumber}
-                onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value.replace(/\D/g, "") })}
+                onChange={(e) => handleAccountNumberChange(e.target.value)}
               />
-              <Input
-                label="Account Name"
-                placeholder="e.g. John Doe"
-                value={bankDetails.accountName}
-                onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
-              />
+
+              {resolvingAccount && <p className="text-xs font-medium text-gray-500">Verifying account…</p>}
+              {verificationError && <p className="text-xs font-medium text-red-600">{verificationError}</p>}
+
+              {accountVerified && resolvedAccountName && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-xs font-bold text-emerald-800">
+                    Verified account name: {resolvedAccountName}
+                  </p>
+                  <label className="mt-2 flex items-center gap-2 text-xs font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={confirmSave}
+                      onChange={(e) => setConfirmSave(e.target.checked)}
+                      className="h-4 w-4 accent-[#1d2d6d]"
+                    />
+                    I confirm this account belongs to me
+                  </label>
+                </div>
+              )}
             </div>
 
             <Button fullWidth isLoading={isSavingBank} onClick={handleSaveBankDetails} className="mt-4 rounded-full bg-[#1d2d6d]">
