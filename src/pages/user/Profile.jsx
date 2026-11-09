@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -87,6 +87,14 @@ export function Profile() {
     accountName: "",
     accountNumber: "",
   });
+  // Ref mirror to avoid stale-closure reads in auto-resolve: when the user
+  // picks a bank and types the 10th digit in the same interaction, closure
+  // `bankDetails` can still hold the previous bankCode/accountNumber and
+  // send the WRONG pair to verify-bank (surfaces as FLW "invalid account").
+  const bankDetailsRef = useRef(bankDetails);
+  useEffect(() => {
+    bankDetailsRef.current = bankDetails;
+  }, [bankDetails]);
   const [isSavingBank, setIsSavingBank] = useState(false);
 
   // Bank selection + account auto-resolution state (searchable bank dropdown)
@@ -240,12 +248,18 @@ export function Profile() {
   }
 
   function handleBankSelect(bank) {
-    const code = bank?.code || bankDetails.bankCode;
-    setBankDetails((d) => ({ ...d, bankName: bank?.name, bankCode: code }));
+    // Always send FLW's string `code` (leading zeros preserved), never `id`.
+    const rawCode = bank?.code || bankDetailsRef.current?.bankCode || "058";
+    const code = /^\d+$/.test(String(rawCode)) && String(rawCode).length < 3
+      ? String(rawCode).padStart(3, "0")
+      : String(rawCode);
+    const acct = bankDetailsRef.current?.accountNumber || "";
+    const nextDetails = { ...bankDetailsRef.current, bankName: bank?.name, bankCode: code };
+    bankDetailsRef.current = nextDetails;
+    setBankDetails(nextDetails);
     setBankQuery("");
     setBankOpen(false);
     // Re-run resolution for the newly selected bank, if an account number is already typed.
-    const acct = bankDetails.accountNumber;
     setAccountVerified(false);
     setResolvedAccountName("");
     setConfirmSave(false);
@@ -256,13 +270,16 @@ export function Profile() {
 
   function handleAccountNumberChange(value) {
     const digits = value.replace(/\D/g, "");
-    setBankDetails((d) => ({ ...d, accountNumber: digits }));
+    const currentCode = bankDetailsRef.current?.bankCode || "058";
+    const nextDetails = { ...bankDetailsRef.current, accountNumber: digits };
+    bankDetailsRef.current = nextDetails;
+    setBankDetails(nextDetails);
     setAccountVerified(false);
     setConfirmSave(false);
     setResolvedAccountName("");
     setVerificationError(null);
     if (digits.length === 10) {
-      resolveAccount(digits, bankDetails.bankCode);
+      resolveAccount(digits, currentCode);
     }
   }
 
