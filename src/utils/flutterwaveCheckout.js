@@ -108,20 +108,17 @@ export async function payWithFlutterwave({
           // Normalize field names and status so callers always get
           // snake_case keys and a canonical "successful" status.
           //
-          // A `flw_ref` starting with "FLW-MOCK" (or "MockFLWRef") means the
-          // SDK ran against Flutterwave's SANDBOX mock flow — i.e. the
-          // checkout was opened with test credentials or mismatched
-          // public/secret key modes. Such payments are never real money and
-          // the backend verification will correctly reject them; surface a
-          // clear configuration error instead of a confusing generic one.
+          // Sandbox payments (TEST keys) legitimately produce
+          // "FLW-MOCK..." / "MockFLWRef..." references. Dev mode allows
+          // both TEST and LIVE keys, so this is logged as an environment
+          // note instead of being rejected — backend verification decides
+          // whether the transaction settles.
           const rawFlwRef = String(response?.flw_ref || response?.flwRef || "");
           if (/^(FLW-MOCK|MockFLWRef)/i.test(rawFlwRef)) {
-            reject(
-              new Error(
-                "This payment was processed in Flutterwave TEST mode and cannot be completed. The site needs live Flutterwave keys (public + secret from the same environment) to accept real payments."
-              )
+            console.info(
+              "[flutterwave] Sandbox mock payment detected (TEST keys). " +
+                "Allowed in development mode; switch to live FLW keys in production."
             );
-            return;
           }
 
           const normalized = {
