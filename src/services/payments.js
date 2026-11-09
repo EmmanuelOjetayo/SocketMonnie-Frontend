@@ -17,7 +17,21 @@ export async function getBanks() {
  * unverified account pass as verified. Never fabricate a verification result.
  */
 export async function verifyBank(accountNumber, bankCode) {
-  return apiClient.post("/payments/verify-bank", { accountNumber, bankCode });
+  console.info(
+    `[BANK] FE → verify-bank | bankCode: ${bankCode ?? "undefined"} | accountNumber: ${accountNumber ? `present(len=${String(accountNumber).length})` : "missing"}`
+  );
+  try {
+    const res = await apiClient.post("/payments/verify-bank", { accountNumber, bankCode });
+    console.info(
+      `[BANK] FE ✔ verify-bank | accountName: ${res?.data?.accountName || "—"} | bankCode: ${res?.data?.bankCode || "—"}`
+    );
+    return res;
+  } catch (err) {
+    console.error(
+      `[BANK] FE ✗ verify-bank | status: ${err?.status || "—"} | message: ${err?.message || String(err).slice(0, 300)}`
+    );
+    throw err;
+  }
 }
 
 
