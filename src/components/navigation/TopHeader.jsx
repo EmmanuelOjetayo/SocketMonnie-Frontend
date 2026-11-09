@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Bell, UserCheck, Handshake } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/utils/cn";
@@ -22,6 +23,13 @@ export function TopHeader({
   const isBrand = variant === "brand";
 
   const firstName = user?.fullName?.split(" ")[0] ?? "User";
+  const [avatarError, setAvatarError] = useState(false);
+
+  // Reset the broken-image flag whenever a different picture is loaded
+  // (onboarding complete, login, or profile update).
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatarUrl]);
   
   // Format Reg ID using _id.substring(0, 8)
   const regNumber = 
@@ -70,8 +78,13 @@ export function TopHeader({
         <div className="flex items-center gap-3">
           {/* Avatar */}
           <div className="relative size-10 rounded-full overflow-hidden border-2 border-[#5b76e1] bg-[#1d2d6d] shrink-0">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={firstName} className="size-full object-cover" />
+            {user?.avatarUrl && !avatarError ? (
+              <img
+                src={user.avatarUrl}
+                alt={firstName}
+                className="size-full object-cover"
+                onError={() => setAvatarError(true)}
+              />
             ) : (
               <div 
                 className="flex size-full items-center justify-center font-bold text-sm text-white"

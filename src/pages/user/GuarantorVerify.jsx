@@ -262,9 +262,9 @@ export function GuarantorVerify({ pendingRequest, isModal = false, onClose, onRe
           <Card className="p-4 rounded-2xl bg-white shadow-sm border border-gray-100 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {applicant.profileImage ? (
+                {applicant.avatarUrl ? (
                   <img
-                    src={applicant.profileImage}
+                    src={applicant.avatarUrl}
                     alt={borrowerName}
                     className="size-11 rounded-full object-cover border border-gray-100 shrink-0"
                   />

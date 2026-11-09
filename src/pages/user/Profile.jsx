@@ -58,6 +58,11 @@ export function Profile() {
   const activeLoanAmount = activeLoan?.remainingBalance || 0;
 
   const firstName = user?.fullName?.split(" ")[0] ?? "Member";
+  const [profileAvatarError, setProfileAvatarError] = useState(false);
+
+  useEffect(() => {
+    setProfileAvatarError(false);
+  }, [user?.avatarUrl]);
   const regNumber = user?.referralCode || user?._id?.substring(0, 8) || "N/A";
   const greeting = getGreeting();
   const kycStatus = user?.kycStatus || "unverified";
@@ -448,8 +453,13 @@ export function Profile() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative size-11 rounded-full overflow-hidden border-2 border-[#5b76e1] bg-[#1d2d6d] shrink-0">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={firstName} className="size-full object-cover" />
+              {user?.avatarUrl && !profileAvatarError ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={firstName}
+                  className="size-full object-cover"
+                  onError={() => setProfileAvatarError(true)}
+                />
               ) : (
                 <div
                   className="flex size-full items-center justify-center font-bold text-base text-white"

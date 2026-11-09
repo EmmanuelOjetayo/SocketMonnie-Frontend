@@ -4,12 +4,15 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { OtpInput } from "@/components/forms/OtpInput";
 import { verifyOtp } from "@/services/auth";
+import { uploadProfilePicture } from "@/services/user";
+import { normalizeUser } from "@/utils/userProfile";
+import { takePendingSelfie } from "@/utils/pendingSelfie";
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/logo.png";
 
 export function VerifyOtp() {
-  const { authenticate } = useAuth();
+  const { authenticate, setUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -30,6 +33,26 @@ export function VerifyOtp() {
       // Authenticate — httpOnly cookie is set by backend
       authenticate(response.data.user);
       toast.success(response.message || "Account verified!");
+
+      // Upload the selfie collected at registration now that the auth
+      // cookie exists. A failure here never blocks onboarding — the user
+      // can still set a picture later (no fake success, no blob URLs).
+      const pendingSelfie = takePendingSelfie();
+      if (pendingSelfie) {
+        const formData = new FormData();
+        formData.append("file", pendingSelfie);
+        try {
+          const picRes = await uploadProfilePicture(formData);
+          const avatarUrl = picRes?.data?.avatarUrl || null;
+          if (avatarUrl && setUser) {
+            setUser((prev) => (prev ? normalizeUser({ ...prev, avatarUrl }) : prev));
+          }
+          toast.success("Profile picture uploaded.");
+        } catch (picErr) {
+          console.error("Profile picture upload failed:", picErr);
+          toast("Profile picture could not be uploaded — you can try again later.");
+        }
+      }
 
       // Navigate straight to KYC
       navigate(ROUTES.ONBOARDING_KYC || "/onboarding/kyc");

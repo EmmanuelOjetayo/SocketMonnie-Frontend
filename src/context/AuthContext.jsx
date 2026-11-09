@@ -7,6 +7,7 @@ import {
 } from "react";
 import * as authService from "@/services/auth";
 import { getCurrentUser } from "@/services/user";
+import { normalizeUser } from "@/utils/userProfile";
 import { ROLES, ROLE_HOME } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 
@@ -32,9 +33,9 @@ export function AuthProvider({ children }) {
         }
         // Also accept the raw user object if it has identifying properties
         if (fetchedUser && (fetchedUser._id || fetchedUser.id || fetchedUser.email || fetchedUser.email)) {
-          setUser(fetchedUser);
+          setUser(normalizeUser(fetchedUser));
         } else if (res && (res._id || res.id || res.email)) {
-          setUser(res);
+          setUser(normalizeUser(res));
         } else {
           console.error("Invalid user payload", res);
         }
@@ -52,7 +53,7 @@ export function AuthProvider({ children }) {
 
   // Used by both Login and Verify OTP — no token storage, cookie is set by backend
   const authenticate = useCallback((userData) => {
-    setUser(userData);
+    setUser(normalizeUser(userData));
   }, []);
 
   // Login

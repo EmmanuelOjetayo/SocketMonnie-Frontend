@@ -35,6 +35,17 @@ export async function uploadKycDocument(formData) {
 }
 
 /**
+ * ## Upload Profile Picture
+ * POST /api/user/profile-picture
+ * Body: FormData { file }
+ * Response: { success, data: { avatarUrl, selfieUrl } }
+ */
+export async function uploadProfilePicture(formData) {
+  if (USE_MOCK) return mockDelay({ success: true, data: { avatarUrl: null } });
+  return apiClient.post("/user/profile-picture", formData);
+}
+
+/**
  * ## Server-side draft sync (owner decision #4)
  * GET /api/user/draft?kind=loan_application
  * Response: { success, data: { draft | null } } — null when none/expired.

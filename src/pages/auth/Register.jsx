@@ -27,6 +27,7 @@ import {
 import logo from "@/assets/logo.png";
 import { register } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
+import { setPendingSelfie } from "@/utils/pendingSelfie";
 
 const STEPS = [
   { label: "Personal Info", icon: User },
@@ -168,6 +169,10 @@ export function Register() {
     try {
       const response = await register(payload);
       toast.success(response?.message || "Account created! OTP sent to email.");
+
+      // Stash the selfie for upload right after OTP verification (auth
+      // cookie only exists after VerifyOtp). Never persisted as a blob URL.
+      if (selfieFile) setPendingSelfie(selfieFile);
 
       // Save email locally for OTP page
       localStorage.setItem("user_email", formData.email);
