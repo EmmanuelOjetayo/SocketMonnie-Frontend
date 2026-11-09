@@ -28,6 +28,7 @@ export function Badge({ variant = "neutral", className, children }) {
 export function statusToBadgeProps(status) {
   const map = {
     active: { variant: "success", label: "Active" },
+    waiting_guarantor: { variant: "warning", label: "Waiting for Guarantors" },
     pending: { variant: "warning", label: "Pending" },
     pending_review: { variant: "warning", label: "Pending Review" },
     completed: { variant: "neutral", label: "Completed" },
@@ -40,6 +41,8 @@ export function statusToBadgeProps(status) {
     defaulted: { variant: "danger", label: "Defaulted" },
     warning_30_days: { variant: "warning", label: "Warning (30d)" },
     defaulted_60_days: { variant: "danger", label: "Defaulted (60d)" },
+    restricted_90_days: { variant: "danger", label: "Restricted (90d)" },
+    recovery_120_days: { variant: "danger", label: "In Recovery (120d)" },
     withdrawn: { variant: "neutral", label: "Withdrawn" },
   };
   return map[status] || { variant: "neutral", label: status };

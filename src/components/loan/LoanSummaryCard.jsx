@@ -3,19 +3,22 @@ import { formatNaira } from "@/utils/format";
 export function LoanSummaryCard({ loan }) {
   if (!loan) return null;
 
-  const principalAmount = loan.principalAmount ?? 150000;
-  const remainingBalance = loan.remainingBalance ?? 50000;
-  
+  const principalAmount = loan.principalAmount ?? 0;
+  const remainingBalance = loan.remainingBalance ?? 0;
+  const totalRepayable = loan.totalRepayable ?? principalAmount;
+  const amountPaid = loan.amountPaid ?? Math.max(0, totalRepayable - remainingBalance);
+  const progressPercent = totalRepayable > 0 ? Math.round((amountPaid / totalRepayable) * 100) : 0;
   const nextPaymentItem = loan.installments?.find((i) => i.status !== "paid");
-  const nextPaymentAmount = nextPaymentItem?.amountDue ?? 50000;
-
-  const totalRepayable = loan.totalRepayable || principalAmount;
-  const amountPaid = loan.amountPaid ?? (totalRepayable - remainingBalance);
-  const progressPercent = totalRepayable > 0 
-    ? Math.round((amountPaid / totalRepayable) * 100) 
-    : 80;
-
-  const loanId = loan.loanId || loan._id?.slice(-8).toUpperCase() || "SM20260307";
+  const loanId = loan.loanNumber || loan._id?.slice(-8).toUpperCase() || "—";
+  const status = loan.status || "unknown";
+  const badgeClass =
+    status === "active"
+      ? "bg-[#E8F8F0] text-[#10B981]"
+      : status === "completed"
+      ? "bg-gray-100 text-gray-600"
+      : status === "overdue" || String(status).includes("default") || String(status).includes("restricted") || String(status).includes("recovery")
+      ? "bg-red-50 text-red-600"
+      : "bg-amber-50 text-amber-700";
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3.5">
@@ -34,8 +37,8 @@ export function LoanSummaryCard({ loan }) {
             <p className="text-xs text-gray-400 font-medium mt-0.5">Loan ID: {loanId}</p>
           </div>
         </div>
-        <span className="rounded-lg bg-[#E8F8F0] px-3 py-1 text-xs font-semibold text-[#10B981]">
-          Active
+        <span className={`rounded-lg px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+          {String(status).replace(/_/g, " ")}
         </span>
       </div>
 
@@ -51,7 +54,7 @@ export function LoanSummaryCard({ loan }) {
         </div>
         <div>
           <p className="text-[11px] font-medium text-gray-400">Next Payment</p>
-          <p className="text-sm font-black text-[#10B981] mt-0.5">{formatNaira(nextPaymentAmount)}</p>
+          <p className="text-sm font-black text-[#10B981] mt-0.5">{nextPaymentItem ? formatNaira(nextPaymentItem.amountDue) : "—"}</p>
         </div>
       </div>
 
@@ -65,7 +68,7 @@ export function LoanSummaryCard({ loan }) {
         </div>
       </div>
 
-      {/* Footer Details matching screenshot */}
+      {/* Footer Details */}
       <div className="flex items-center justify-between text-xs pt-0.5">
         <div className="flex items-center gap-1 font-semibold">
           <span className="text-gray-500">Paid:</span>

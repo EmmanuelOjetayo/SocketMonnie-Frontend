@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef } from "react";
+import toast from "react-hot-toast";
 import { Search, Eye, XCircle, CheckCircle, FileText, RefreshCw, Bell, Clock, Shield, CreditCard, Building2, DollarSign, AlertTriangle, User, ChevronRight, Calendar, Filter, CheckCircle2, Target, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { TopHeader } from "@/components/navigation/TopHeader";
 import { Badge, statusToBadgeProps } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
@@ -187,6 +189,8 @@ export function AdminLoans() {
               <option value="rejected">Rejected</option>
               <option value="warning_30_days">Warning (30d)</option>
               <option value="defaulted_60_days">Defaulted (60d)</option>
+              <option value="restricted_90_days">Restricted (90d)</option>
+              <option value="recovery_120_days">In Recovery (120d)</option>
             </select>
 
             <Button
@@ -472,8 +476,8 @@ export function AdminLoans() {
         <ConfirmDialog
           isOpen={!!approveTarget}
           onClose={() => setApproveTarget(null)}
-          title="Confirm Loan Application"
-          description="Confirming changes this application from pending review to active. No payout will be sent."
+          title="Confirm Loan Approval & Disbursement"
+          description="Confirming approves this application and records the disbursement (ledger + schedule) to the member. The loan becomes active immediately."
           confirmLabel={isApproving ? "Confirming..." : "Confirm Loan"}
           onConfirm={confirmApprove}
           variant="success"

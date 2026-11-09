@@ -74,7 +74,7 @@ export function Notifications() {
 
     const payload = notification.data || {};
     if (payload.token) {
-      navigate(`/guarantor/verify/${payload.token}`);
+      navigate(ROUTES.GUARANTOR_VERIFY.replace(":token", payload.token));
       return;
     }
 

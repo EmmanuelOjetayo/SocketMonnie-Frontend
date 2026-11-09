@@ -10,7 +10,8 @@ import {
   XCircle, 
   Eye, 
   EyeOff, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Award
 } from "lucide-react";
 import { TopHeader } from "@/components/navigation/TopHeader";
 import { Card } from "@/components/ui/Card";
@@ -33,6 +34,7 @@ import { GuarantorVerify } from "@/pages/user/GuarantorVerify";
 
 const QUICK_ACTIONS = [
   { to: ROUTES.SAVINGS_DEPOSIT, icon: HandCoins, label: "Save Money" },
+  { to: ROUTES.SOCKET_SCORE, icon: Award, label: "SocketScore" },
   { to: ROUTES.LOAN_APPLY, icon: Coins, label: "Apply Loan" },
   { to: ROUTES.LOANS, icon: Calendar, label: "Pay Loan" },
   { to: ROUTES.PROFILE, icon: Gift, label: "Referral" },
@@ -362,8 +364,11 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
             )}
           </Card>
 
-          {/* Socket Score Card with ProgressRing */}
-          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm flex flex-col items-center justify-between text-center h-[210px]">
+          {/* Socket Score Card with ProgressRing — tap to open the full tracking page */}
+          <Link
+            to={ROUTES.SOCKET_SCORE}
+            className="block rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm flex flex-col items-center justify-between text-center h-[210px] active:scale-[0.98] transition-transform"
+          >
             <div className="w-full text-left">
               <h4 className="text-[11px] font-extrabold text-[#090f24] tracking-tight">
                 Socket Score
@@ -388,7 +393,7 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
                 )}
               </div>
             </div>
-          </Card>
+          </Link>
 
         </div>
 

@@ -17,10 +17,11 @@ export function LoanDetails() {
     () => getLoanById(loanId),
     [loanId]
   );
-  const { data: schedule, isLoading: loadingSchedule } = useAsync(
+  const { data: scheduleData, isLoading: loadingSchedule } = useAsync(
     () => getRepaymentSchedule(loanId),
     [loanId]
   );
+  const schedule = scheduleData?.schedule || (Array.isArray(scheduleData) ? scheduleData : []);
 
   if (loadingLoan) {
     return (
@@ -62,7 +63,7 @@ export function LoanDetails() {
         </div>
 
         {loan.status === "active" && loan.remainingBalance > 0 && (
-          <Button fullWidth onClick={() => navigate(ROUTES.LOANS)}>
+          <Button fullWidth onClick={() => navigate(ROUTES.LOAN_REPAY)}>
             Make Repayment
           </Button>
         )}

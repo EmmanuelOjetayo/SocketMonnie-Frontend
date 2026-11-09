@@ -88,6 +88,11 @@ export async function applyForLoan(payload) {
  * Body: { reason? } — only valid while the loan status is "waiting_guarantor".
  * Response: { success, message, loan }
  */
+export async function replaceGuarantor(loanId, payload) {
+  const res = await apiClient.post(`/loans/${loanId}/replace-guarantor`, payload);
+  return { message: res.message, loan: res.loan };
+}
+
 export async function cancelLoanApplication(loanId, reason = "") {
   const res = await apiClient.post(`/loans/${loanId}/cancel`, { reason });
   return {

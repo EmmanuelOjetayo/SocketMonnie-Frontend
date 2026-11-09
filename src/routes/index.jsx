@@ -45,7 +45,7 @@ import { Transactions } from "@/pages/user/Transactions";
 import { Notifications } from "@/pages/user/Notifications";
 import { Profile } from "@/pages/user/Profile";
 import { Complaints } from "@/pages/user/Complaints";
-import { SocketScore } from "@/pages/user/SocketScore";
+import { SocketScorePage } from "@/pages/user/SocketScorePage";
 import { Referrals } from "@/pages/user/Referrals";
 import { LoanRepay } from "@/pages/user/LoanRepay";
 import { MembershipFee } from "@/pages/user/MembershipFee";
@@ -66,6 +66,7 @@ import { SupportDashboard } from "@/pages/support/SupportDashboard";
 
 
 import { AdminSettings } from "@/pages/admin/Settings";
+import { SocketScoreConfig } from "@/pages/admin/SocketScoreConfig";
 import { AdminAuditTrail } from "@/pages/admin/AuditTrail";
 import { DepositSuccess } from "@/pages/user/DepositSuccess";
 import { DepositFailed } from "@/pages/user/DepositFailed";
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.RESET_PASSWORD, element: <ResetPassword /> },
       { path: ROUTES.TERMS, element: <Terms /> },
       { path: ROUTES.PRIVACY, element: <Privacy /> },
+      { path: ROUTES.GUARANTOR_VERIFY, element: <GuarantorVerify /> },
     ],
   },
   {
@@ -138,14 +140,13 @@ export const router = createBrowserRouter([
           { path: ROUTES.SAVINGS_WITHDRAW_SUCCESS, element: <WithdrawalSuccess /> },
           { path: ROUTES.LOAN_REPAY, element: <LoanRepay /> },
           { path: ROUTES.LOAN_APPLY, element: <LoanApply /> },
-          {path: ROUTES.GUARANTOR_VERIFY, element: <GuarantorVerify />},
           { path: ROUTES.LOAN_DETAILS, element: <LoanDetails /> },
           { path: ROUTES.LOAN_HISTORY, element: <LoanHistory /> },
           { path: ROUTES.LOAN_REPAY_SUCCESS, element: <LoanRepaySuccess /> },
           { path: ROUTES.LOAN_COMPLETE_SUCCESS, element: <CompleteLoanRepayment /> },
           { path: ROUTES.NOTIFICATIONS, element: <Notifications /> },
           { path: ROUTES.COMPLAINTS, element: <Complaints /> },
-          { path: ROUTES.SOCKET_SCORE, element: <SocketScore /> },
+          { path: ROUTES.SOCKET_SCORE, element: <SocketScorePage /> },
           { path: ROUTES.REFERRALS, element: <Referrals /> },
           { path: ROUTES.DEPOSIT_SUCCESS, element: <DepositSuccess /> },
 { path: ROUTES.DEPOSIT_FAILED, element: <DepositFailed /> },
@@ -165,6 +166,7 @@ export const router = createBrowserRouter([
           { path: ROUTES.ADMIN_LOANS, element: <AdminLoans /> },
           { path: ROUTES.ADMIN_REPORTS, element: <AdminReports /> },
           { path: ROUTES.ADMIN_SETTINGS, element: <AdminSettings /> },
+          { path: ROUTES.ADMIN_SCORE_CONFIG, element: <SocketScoreConfig /> },
           { path: ROUTES.ADMIN_AUDIT, element: <AdminAuditTrail /> },
           {path: ROUTES.WITHDRAWS, element: <WithdrawalApprovals /> }
         ],

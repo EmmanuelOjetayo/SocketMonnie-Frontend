@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Activity, FileBarChart, Landmark, LayoutDashboard, Users } from "lucide-react";
+import { Activity, Award, FileBarChart, Landmark, LayoutDashboard, Users } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { ROUTES } from "@/constants/routes";
 
@@ -7,10 +7,10 @@ const ITEMS = [
   { to: ROUTES.ADMIN, icon: LayoutDashboard, label: "Overview" },
   { to: ROUTES.ADMIN_MEMBERS, icon: Users, label: "Members" },
   { to: ROUTES.ADMIN_LOANS, icon: Landmark, label: "Loans" },
+  { to: ROUTES.ADMIN_SCORE_CONFIG, icon: Award, label: "Score" },
   { to: ROUTES.ADMIN_REPORTS, icon: FileBarChart, label: "Reports" },
   { to: ROUTES.ADMIN_AUDIT, icon: Activity, label: "Audit" },
   { to: ROUTES.WITHDRAWS, icon: Landmark, label: "Withdraws" },
-  
 ];
 
 export function AdminBottomNav() {
