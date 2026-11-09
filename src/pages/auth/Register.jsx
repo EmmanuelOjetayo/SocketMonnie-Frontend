@@ -171,8 +171,15 @@ export function Register() {
       toast.success(response?.message || "Account created! OTP sent to email.");
 
       // Stash the selfie for upload right after OTP verification (auth
-      // cookie only exists after VerifyOtp). Never persisted as a blob URL.
-      if (selfieFile) setPendingSelfie(selfieFile);
+      // cookie only exists after VerifyOtp). IndexedDB persists the File
+      // across refresh — never persisted as a blob URL.
+      if (selfieFile) {
+        try {
+          await setPendingSelfie(selfieFile);
+        } catch (selfieErr) {
+          console.error("Could not stash selfie:", selfieErr);
+        }
+      }
 
       // Save email locally for OTP page
       localStorage.setItem("user_email", formData.email);

@@ -35,9 +35,9 @@ export function VerifyOtp() {
       toast.success(response.message || "Account verified!");
 
       // Upload the selfie collected at registration now that the auth
-      // cookie exists. A failure here never blocks onboarding — the user
-      // can still set a picture later (no fake success, no blob URLs).
-      const pendingSelfie = takePendingSelfie();
+      // cookie exists. IndexedDB keeps it across refresh — never a blob
+      // URL, never a fake success. Failure never blocks onboarding.
+      const pendingSelfie = await takePendingSelfie();
       if (pendingSelfie) {
         const formData = new FormData();
         formData.append("file", pendingSelfie);
