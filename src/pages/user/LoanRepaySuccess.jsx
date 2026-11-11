@@ -1,59 +1,121 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { TopHeader } from "@/components/navigation/TopHeader";
 import { SuccessReceipt } from "@/components/success/SuccessReceipt";
 import { ROUTES } from "@/constants/routes";
+import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
+import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 
+/**
+ * Loan repayment success page.
+ *
+ * The backend is the source of truth: polls GET /api/payments/status/:reference
+ * which reads the webhook/callback-settled LoanTransaction record (and
+ * reconciles with Flutterwave while still pending). location.state is only a
+ * fallback for the placeholder — the green receipt appears only after the
+ * backend confirms the repayment.
+ */
 export function LoanRepaySuccess() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { amount, method, reference, remainingBalance, date } = location.state || {};
 
-  // Safe refresh (P2-001): without state there is no receipt to show —
-  // redirecting to the loans page prevents misleading ₦0 receipts.
+  const state = location.state || {};
+  const params = new URLSearchParams(location.search);
+  const queryRef = params.get("tx_ref") || params.get("reference") || null;
+
+  const reference =
+    state.reference ?? state.tx_ref ?? queryRef ?? getRememberedPaymentRef();
+
+  const expectedAmount = Number(state.amount ?? 0);
+  const expectedMethod = state.method;
+  const expectedRemainingBalance = state.remainingBalance;
+
+  const { transaction, status, isConfirming, error, refresh } = usePaymentConfirmation(reference);
+
+  const isSuccess = status === "successful";
+  const isFailed = status === "failed" || status === "not_found";
+
   useEffect(() => {
-    if (!location.state || (!reference && !amount)) {
-      navigate(ROUTES.LOANS, { replace: true });
+    if (status === "successful" || status === "failed" || status === "not_found") {
+      clearRememberedPaymentRef();
     }
-  }, [location.state, reference, amount, navigate]);
+  }, [status]);
 
-  const details = [
-    { label: "Method", value: method?.replace("_", " ")?.toUpperCase() || "Bank Transfer" },
-    { label: "Status", value: "Successful" },
-    { label: "Date & Time", value: date ? new Date(date).toLocaleString() : new Date().toLocaleString() },
-    { label: "Loan Payment", value: `₦${amount?.toLocaleString() || "0"}` },
-    { label: "Outstanding Balance", value: `₦${remainingBalance?.toLocaleString() || "0"}` },
-    { label: "Reference ID", value: reference || "N/A" },
-  ];
+  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const displayMethod = transaction?.method || expectedMethod || "bank_transfer";
+  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
 
-  const actions = [
-    {
-      label: "Back to Loans",
-      variant: "primary",
-      onClick: () => navigate(ROUTES.LOANS),
-    },
-    {
-      label: "Download Receipt",
-      variant: "outline",
-      onClick: () => toast("Receipt download coming soon"),
-    },
-    {
-      label: "Share Receipt",
-      variant: "outline",
-      onClick: () => toast("Share coming soon"),
-    },
-  ];
+  const details = useMemo(() => {
+    return [
+      { label: "Method", value: String(displayMethod).replace("_", " ").toUpperCase() },
+      {
+        label: "Status",
+        value: isSuccess
+          ? "Successful"
+          : isFailed
+          ? "Failed"
+          : isConfirming || status === "checking"
+          ? "Verifying with bank…"
+          : "Pending confirmation",
+      },
+      {
+        label: "Date & Time",
+        value: transaction?.paidAt ? new Date(transaction.paidAt).toLocaleString() : "—",
+      },
+      { label: "Loan Payment", value: `₦${confirmedAmount.toLocaleString()}` },
+      {
+        label: "Outstanding Balance",
+        value: expectedRemainingBalance != null ? `₦${Number(expectedRemainingBalance).toLocaleString()}` : "—",
+      },
+      ...(isSuccess && transaction?.transactionId
+        ? [{ label: "Transaction ID", value: String(transaction.transactionId) }]
+        : []),
+      { label: "Reference ID", value: reference || "N/A" },
+    ];
+  }, [displayMethod, isSuccess, isFailed, isConfirming, status, transaction, confirmedAmount, expectedRemainingBalance, reference]);
+
+  const actions = useMemo(() => {
+    if (isSuccess) {
+      return [
+        { label: "Back to Loans", variant: "primary", onClick: () => navigate(ROUTES.LOANS) },
+        { label: "Download Receipt", variant: "outline", onClick: () => toast("Receipt download coming soon") },
+      ];
+    }
+    if (isFailed) {
+      return [
+        { label: "Try Again", variant: "primary", onClick: () => navigate(ROUTES.LOANS) },
+        { label: "Back to Dashboard", variant: "outline", onClick: () => navigate(ROUTES.DASHBOARD) },
+      ];
+    }
+    return [
+      { label: isConfirming ? "Checking status…" : "Refresh Status", variant: "outline", onClick: refresh },
+      { label: "Back to Loans", variant: "outline", onClick: () => navigate(ROUTES.LOANS) },
+    ];
+  }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
+
+  const title = isSuccess
+    ? "Repayment Successful"
+    : isFailed
+    ? "Payment Not Confirmed"
+    : "Confirming Your Repayment";
+
+  const subtitle = isSuccess
+    ? "Your loan repayment has been processed."
+    : isFailed
+    ? error || "We could not confirm this payment."
+    : "We are confirming your repayment with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
     <div>
-      <TopHeader title="Repayment Successful" showBack={false} />
+      <TopHeader title={title} showBack={false} />
       <SuccessReceipt
-        title="Repayment Successful"
-        amount={amount || 0}
-        subtitle="Your loan payment has been processed."
+        title={title}
+        amount={confirmedAmount}
+        subtitle={subtitle}
         details={details}
         actions={actions}
+        status={receiptStatus}
       />
     </div>
   );

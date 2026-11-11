@@ -22,6 +22,7 @@ import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { rememberPaymentRef } from "@/utils/paymentRef";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
 const QUICK_AMOUNTS = [5000, 10000, 15000, 20000];
@@ -303,6 +304,7 @@ export function SavingsDeposit() {
 
         if (verifyResponse.success) {
           toast.success("Deposit successful!");
+          rememberPaymentRef(reference);
           navigate(`${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`);
         } else {
           toast.error(
@@ -311,11 +313,14 @@ export function SavingsDeposit() {
           navigate(`${ROUTES.PAYMENTS_SAVINGS_FAILED}?${params.join("&")}`);
         }
       } catch (error) {
+        // A verification error (timeout, FLW still processing, network blip)
+        // must NOT be displayed as a false failure. Go to the confirmation
+        // page, which polls the backend and only fails when the backend
+        // establishes the payment truly failed. The webhook can still settle
+        // this deposit server-side even if the user closes the browser.
         console.error("Verification Error:", error);
-        toast.error(
-          error?.data?.message || error?.message || "Unable to verify payment."
-        );
-        navigate(`${ROUTES.PAYMENTS_SAVINGS_FAILED}?${params.join("&")}`);
+        rememberPaymentRef(reference);
+        navigate(`${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`);
       } finally {
         setIsSubmitting(false);
       }

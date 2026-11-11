@@ -49,6 +49,23 @@ export async function verifyDeposit(data) {
     data
   );
 }
+
+/**
+ * Authoritative transaction status for success pages.
+ *
+ * The backend is the source of truth: this endpoint reads the webhook/callback
+ * settled records and, while a payment is still pending, triggers one
+ * idempotent provider reconciliation (same handlers the webhook uses) so a
+ * missed webhook settles server-side and the page converges on the real
+ * outcome. Never use location.state or a browser redirect as proof of payment.
+ *
+ * Response: { success, data: { found, reference, type, status, amount,
+ *   method, transactionId, paidAt, monthsSettled, reconciled } }
+ * status: "successful" | "pending" | "failed"
+ */
+export async function getPaymentStatus(reference) {
+  return apiClient.get(`/payments/status/${encodeURIComponent(reference)}`);
+}
 /**
  * Initiate a loan repayment via Flutterwave Window Checkout.
  * Calls POST /api/loans/repay/initialize which returns the Flutterwave

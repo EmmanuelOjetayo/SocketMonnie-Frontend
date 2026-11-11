@@ -8,6 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { useNavigate } from "react-router-dom";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { rememberPaymentRef } from "@/utils/paymentRef";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
 
@@ -68,6 +69,7 @@ export function MembershipFee() {
 
         if (verifyRes?.success) {
           toast.success("Membership confirmed. You can now access savings and loans.");
+          rememberPaymentRef(responseReference);
           navigate(ROUTES.MEMBERSHIP_SUCCESS, {
             state: {
               amount: totalPayable,

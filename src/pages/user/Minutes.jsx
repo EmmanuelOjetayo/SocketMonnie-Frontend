@@ -18,6 +18,7 @@ import {
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { rememberPaymentRef } from "@/utils/paymentRef";
 
 const MONTHLY_MINUTES_AMOUNT = 500;
 
@@ -201,6 +202,7 @@ export function Minutes() {
           toast.success(
             "Your SocketMinutes contributions have been cleared successfully!"
           );
+          rememberPaymentRef(paymentReference);
           navigate(ROUTES.MINUTES_SUCCESS, {
             state: {
               amount: totalPayable,

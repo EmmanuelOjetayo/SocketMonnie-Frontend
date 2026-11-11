@@ -35,7 +35,7 @@ export async function uploadKycDocument(formData) {
 }
 
 /**
- * ## Upload Profile Picture
+ * ## Upload / Replace Profile Picture
  * POST /api/user/profile-picture
  * Body: FormData { file }
  * Response: { success, data: { avatarUrl, selfieUrl } }
@@ -43,6 +43,17 @@ export async function uploadKycDocument(formData) {
 export async function uploadProfilePicture(formData) {
   if (USE_MOCK) return mockDelay({ success: true, data: { avatarUrl: null } });
   return apiClient.post("/user/profile-picture", formData);
+}
+
+/**
+ * ## Delete Profile Picture (CRUD "D")
+ * DELETE /api/user/profile-picture
+ * Response: { success, data: { avatarUrl: null, selfieUrl: null, alreadyDeleted } }
+ * Idempotent — deleting with no picture set returns alreadyDeleted: true.
+ */
+export async function deleteProfilePicture() {
+  if (USE_MOCK) return mockDelay({ success: true, data: { avatarUrl: null, selfieUrl: null, alreadyDeleted: false } });
+  return apiClient.delete("/user/profile-picture");
 }
 
 /**

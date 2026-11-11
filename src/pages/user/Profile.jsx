@@ -18,6 +18,9 @@ import {
   FileText,
   Copy,
   AlertTriangle,
+  Camera,
+  Trash2,
+  ImagePlus,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -32,8 +35,11 @@ import {
   updatePersonalInfo,
   updateBankDetails,
   uploadKycDocument,
+  uploadProfilePicture,
+  deleteProfilePicture,
   setTransactionPin,
 } from "@/services/user";
+import { normalizeUser } from "@/utils/userProfile";
 import { ROUTES } from "@/constants/routes";
 
 function getGreeting() {
@@ -126,6 +132,10 @@ export function Profile() {
   // 4. Security / Pin
   const [pin, setPin] = useState("");
   const [isSavingPin, setIsSavingPin] = useState(false);
+
+  // 5. Profile Photo (CRUD: upload/replace + delete)
+  const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
+  const photoInputRef = useRef(null);
 
   useEffect(() => {
     if (user) {
@@ -397,6 +407,58 @@ export function Profile() {
     }
   }
 
+  // --- Profile Photo (CRUD) ---
+  // Create/Replace: POST /api/user/profile-picture (Cloudinary-backed, the
+  // backend deletes the previous asset). Delete: DELETE /api/user/profile-picture
+  // which also destroys the stored asset. The backend response is the only
+  // source of truth — the avatar in state is updated from it, never optimistically.
+  async function handlePhotoSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Profile picture must be a JPEG, JPG, or PNG image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Profile picture must be 5MB or smaller.");
+      return;
+    }
+
+    setIsUpdatingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await uploadProfilePicture(formData);
+      const avatarUrl = res?.data?.avatarUrl || res?.data?.selfieUrl || null;
+      if (avatarUrl) {
+        setUser((prev) => (prev ? normalizeUser({ ...prev, avatarUrl }) : prev));
+      }
+      toast.success(res?.message || "Profile picture updated.");
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Failed to update profile picture");
+    } finally {
+      setIsUpdatingPhoto(false);
+    }
+  }
+
+  async function handleRemovePhoto() {
+    setIsUpdatingPhoto(true);
+    try {
+      const res = await deleteProfilePicture();
+      setUser((prev) =>
+        prev ? normalizeUser({ ...prev, avatarUrl: null, selfieUrl: null }) : prev
+      );
+      toast.success(res?.message || "Profile picture removed.");
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Failed to remove profile picture");
+    } finally {
+      setIsUpdatingPhoto(false);
+    }
+  }
+
   const MENU_ITEMS = [
     {
       icon: User,
@@ -468,6 +530,16 @@ export function Profile() {
                   {firstName.charAt(0)}
                 </div>
               )}
+              {/* CRUD: tap to upload / replace / remove the selfie */}
+              <button
+                type="button"
+                onClick={() => setActiveModal("photo")}
+                disabled={isUpdatingPhoto}
+                aria-label="Change profile photo"
+                className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+              >
+                <Camera className="size-4" />
+              </button>
             </div>
 
             <div className="flex flex-col">
@@ -875,6 +947,87 @@ export function Profile() {
             >
               {user?.isPinSet ? "Update PIN" : "Save PIN"}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. PROFILE PHOTO (CRUD) MODAL */}
+      {activeModal === "photo" && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-lg font-bold text-gray-900">Profile Photo</h3>
+              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Current photo preview */}
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <div className="relative size-28 rounded-full overflow-hidden border-4 border-indigo-100 bg-[#1d2d6d]">
+                {user?.avatarUrl && !profileAvatarError ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={firstName}
+                    className="size-full object-cover"
+                    onError={() => setProfileAvatarError(true)}
+                  />
+                ) : (
+                  <div
+                    className="flex size-full items-center justify-center font-bold text-3xl text-white"
+                    style={{ backgroundColor: "#3b5bdb" }}
+                  >
+                    {firstName.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">
+                {user?.avatarUrl ? "Your profile photo is visible to verify your identity." : "Add a photo so members can recognize you."}
+              </p>
+            </div>
+
+            {/* Hidden file input for upload/replace */}
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png"
+              className="hidden"
+              onChange={handlePhotoSelected}
+            />
+
+            <div className="space-y-2.5 pt-1">
+              <Button
+                fullWidth
+                isLoading={isUpdatingPhoto}
+                onClick={() => photoInputRef.current?.click()}
+                className="rounded-full bg-[#1d2d6d]"
+              >
+                <ImagePlus className="w-4 h-4" />
+                {user?.avatarUrl ? "Replace Photo" : "Upload Photo"}
+              </Button>
+
+              {user?.avatarUrl && (
+                <Button
+                  fullWidth
+                  variant="outline"
+                  isLoading={isUpdatingPhoto}
+                  onClick={handleRemovePhoto}
+                  className="rounded-full border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Remove Photo
+                </Button>
+              )}
+
+              <Button
+                fullWidth
+                variant="outline"
+                onClick={() => setActiveModal(null)}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       )}

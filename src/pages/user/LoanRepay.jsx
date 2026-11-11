@@ -10,6 +10,7 @@ import { getActiveLoan, getRepaymentSchedule } from "@/services/loans";
 import { initiateLoanRepayment, verifyLoanRepayment } from "@/services/payments";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { rememberPaymentRef } from "@/utils/paymentRef";
 import { formatNaira, formatDate } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 
@@ -95,6 +96,7 @@ export function LoanRepay() {
 
       toast.success("Loan repayment successful.");
 
+      rememberPaymentRef(responseReference);
       navigate(ROUTES.LOAN_COMPLETE_SUCCESS, {
         state: {
           amount: paymentAmount,

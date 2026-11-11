@@ -1,56 +1,119 @@
+import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SuccessReceipt } from "@/components/success/SuccessReceipt";
 import { ROUTES } from "@/constants/routes";
+import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
+import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 import { formatNaira } from "@/utils/format";
 
 /**
  * Complete Loan Repayment success page.
  *
- * Displays the outcome of a verified loan repayment through the same
- * SuccessReceipt pattern as the savings deposit success page. Used after
- * a successful loan repayment (init -> checkout -> verify -> success).
+ * The backend is the source of truth: polls GET /api/payments/status/:reference
+ * which reads the webhook/callback-settled LoanTransaction record (and
+ * reconciles with Flutterwave while still pending). The green receipt appears
+ * only after the backend confirms the repayment — a browser redirect alone is
+ * never proof of payment.
  */
 export function CompleteLoanRepayment() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const state = location.state || {};
-  const amount = Number(state.amount ?? 0);
-  const method = state.method;
-  const reference = state.reference ?? state.tx_ref ?? "N/A";
-  const remainingBalance = state.remainingBalance;
-  const date = state.date || new Date().toISOString();
+  const params = new URLSearchParams(location.search);
+  const queryRef = params.get("tx_ref") || params.get("reference") || null;
 
-  const details = [
-    { label: "Method", value: method?.replace("_", " ")?.toUpperCase() || "Bank Transfer" },
-    { label: "Status", value: "Successful" },
-    { label: "Loan Repayment", value: formatNaira(amount) },
-    { label: "Outstanding Balance", value: remainingBalance != null ? formatNaira(remainingBalance) : "—" },
-    { label: "Date & Time", value: new Date(date).toLocaleString() },
-    { label: "Reference ID", value: reference },
-  ];
+  const reference =
+    state.reference ?? state.tx_ref ?? queryRef ?? getRememberedPaymentRef();
 
-  const actions = [
-    {
-      label: "Back to Loans",
-      variant: "primary",
-      onClick: () => navigate(ROUTES.LOANS),
-    },
-    {
-      label: "Back to Dashboard",
-      variant: "outline",
-      onClick: () => navigate(ROUTES.DASHBOARD),
-    },
-  ];
+  const expectedAmount = Number(state.amount ?? 0);
+  const expectedMethod = state.method;
+  const expectedRemainingBalance = state.remainingBalance;
+
+  const { transaction, status, isConfirming, error, refresh } = usePaymentConfirmation(reference);
+
+  const isSuccess = status === "successful";
+  const isFailed = status === "failed" || status === "not_found";
+
+  useEffect(() => {
+    if (status === "successful" || status === "failed" || status === "not_found") {
+      clearRememberedPaymentRef();
+    }
+  }, [status]);
+
+  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const displayMethod = transaction?.method || expectedMethod || "bank_transfer";
+  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  const details = useMemo(() => {
+    return [
+      { label: "Method", value: String(displayMethod).replace("_", " ").toUpperCase() },
+      {
+        label: "Status",
+        value: isSuccess
+          ? "Successful"
+          : isFailed
+          ? "Failed"
+          : isConfirming || status === "checking"
+          ? "Verifying with bank…"
+          : "Pending confirmation",
+      },
+      { label: "Loan Repayment", value: formatNaira(confirmedAmount) },
+      {
+        label: "Outstanding Balance",
+        value: expectedRemainingBalance != null ? formatNaira(expectedRemainingBalance) : "—",
+      },
+      {
+        label: "Date & Time",
+        value: transaction?.paidAt ? new Date(transaction.paidAt).toLocaleString() : "—",
+      },
+      ...(isSuccess && transaction?.transactionId
+        ? [{ label: "Transaction ID", value: String(transaction.transactionId) }]
+        : []),
+      { label: "Reference ID", value: reference || "N/A" },
+    ];
+  }, [displayMethod, isSuccess, isFailed, isConfirming, status, transaction, confirmedAmount, expectedRemainingBalance, reference]);
+
+  const actions = useMemo(() => {
+    if (isSuccess) {
+      return [
+        { label: "Back to Loans", variant: "primary", onClick: () => navigate(ROUTES.LOANS) },
+        { label: "Back to Dashboard", variant: "outline", onClick: () => navigate(ROUTES.DASHBOARD) },
+      ];
+    }
+    if (isFailed) {
+      return [
+        { label: "Try Again", variant: "primary", onClick: () => navigate(ROUTES.LOANS) },
+        { label: "Back to Dashboard", variant: "outline", onClick: () => navigate(ROUTES.DASHBOARD) },
+      ];
+    }
+    return [
+      { label: isConfirming ? "Checking status…" : "Refresh Status", variant: "outline", onClick: refresh },
+      { label: "Back to Loans", variant: "outline", onClick: () => navigate(ROUTES.LOANS) },
+    ];
+  }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
+
+  const title = isSuccess
+    ? "Loan Repayment Successful"
+    : isFailed
+    ? "Payment Not Confirmed"
+    : "Confirming Your Loan Repayment";
+
+  const subtitle = isSuccess
+    ? "Your loan repayment has been processed successfully."
+    : isFailed
+    ? error || "We could not confirm this payment."
+    : "We are confirming your repayment with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
       <SuccessReceipt
-        title="Loan Repayment Successful"
-        amount={amount}
-        subtitle="Your loan repayment has been processed successfully."
+        title={title}
+        amount={confirmedAmount}
+        subtitle={subtitle}
         details={details}
         actions={actions}
+        status={receiptStatus}
       />
     </div>
   );
