@@ -45,6 +45,7 @@ export const ROUTES = {
   REPORTS: "/dashboard/reports",
   SOCKET_SCORE: "/dashboard/socket-score",
   TRANSACTIONS: "/dashboard/transactions",
+  TRANSACTION_DETAIL: "/dashboard/transactions/:id",
   NOTIFICATIONS: "/dashboard/notifications",
   PROFILE: "/dashboard/profile",
   GUARANTOR_VERIFY: "/guarantor/verify/:token",

@@ -4,6 +4,7 @@ import { SuccessReceipt } from "@/components/success/SuccessReceipt";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
+import { buildReceiptData } from "@/utils/receiptData";
 
 /**
  * Unified SocketMinutes success page.
@@ -39,11 +40,19 @@ export function MinutesSuccessPage() {
     }
   }, [status]);
 
-  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const confirmedAmount = transaction
+    ? Number(transaction.amount || 0)
+    : expectedAmount;
   const monthsSettled =
-    isSuccess && transaction?.monthsSettled ? Number(transaction.monthsSettled) : expectedMonths;
+    transaction?.monthsSettled != null ? Number(transaction.monthsSettled) : expectedMonths;
 
   const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  // Canonical receipt model — built only from the backend-confirmed record.
+  const receipt = useMemo(
+    () => (transaction ? buildReceiptData(transaction) : null),
+    [transaction]
+  );
 
   const details = useMemo(() => {
     return [
@@ -112,6 +121,7 @@ export function MinutesSuccessPage() {
         details={details}
         actions={actions}
         status={receiptStatus}
+        receipt={receipt}
       />
     </div>
   );

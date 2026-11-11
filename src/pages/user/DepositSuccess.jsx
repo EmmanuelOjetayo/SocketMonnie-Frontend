@@ -4,7 +4,7 @@ import { SuccessReceipt } from "@/components/success/SuccessReceipt";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getSavingsSummary } from "@/services/savings";
-import toast from "react-hot-toast";
+import { buildReceiptData } from "@/utils/receiptData";
 
 /**
  * Unified DepositSuccess page.
@@ -75,11 +75,26 @@ export function DepositSuccess() {
     }
   }, [reference, navigate]);
 
-  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const confirmedAmount = transaction
+    ? Number(transaction.amount || 0)
+    : expectedAmount;
   const displayMethod = transaction?.method || expectedMethod;
   const displayMethodLabel = String(displayMethod || "bank_transfer").replace("_", " ").toUpperCase();
 
   const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  // Canonical receipt model — built ONLY from the backend record. Without a
+  // backend record there is no receipt to download, so a pending/unknown
+  // payment can never produce a printable "successful" receipt.
+  const receipt = useMemo(
+    () =>
+      transaction
+        ? buildReceiptData(transaction, {
+            metadata: updatedBalance != null ? { balanceAfter: updatedBalance } : {},
+          })
+        : null,
+    [transaction, updatedBalance]
+  );
 
   const details = useMemo(() => {
     const rows = [
@@ -116,11 +131,6 @@ export function DepositSuccess() {
           label: "Back to Savings",
           variant: "primary",
           onClick: () => navigate(ROUTES.SAVINGS || "/savings"),
-        },
-        {
-          label: "Download Receipt",
-          variant: "outline",
-          onClick: () => toast("Receipt download coming soon"),
         },
       ];
     }
@@ -174,6 +184,7 @@ export function DepositSuccess() {
         details={details}
         actions={actions}
         status={receiptStatus}
+        receipt={receipt}
       />
     </div>
   );

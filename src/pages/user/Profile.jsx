@@ -509,7 +509,7 @@ export function Profile() {
       }}
       >
         <div className="flex items-center justify-center gap-2 mb-3">
-          <h1 className="text-lg font-bold tracking-tight text-white">Profile & Settings</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">Profile & Settings</h1>
          </div>
 
         <div className="flex items-center justify-between">
@@ -543,12 +543,12 @@ export function Profile() {
             </div>
 
             <div className="flex flex-col">
-              <span className="text-[11px] font-normal text-[#bdc8f3] leading-tight">{greeting}</span>
-              <span className="text-base font-bold text-white tracking-wide leading-snug">
+              <span className="text-xs font-medium leading-tight text-[#bdc8f3]">{greeting}</span>
+              <span className="text-sm font-bold tracking-wide leading-snug text-white">
                 {user?.fullName || firstName}
               </span>
-              <div className="flex items-center gap-1 text-[11px] text-[#bdc8f3]/80 mt-0.5">
-                <UserCheck className="size-3 text-[#7c91e7]" />
+              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#bdc8f3]/80">
+                <UserCheck className="size-3.5 text-[#7c91e7]" />
                 <span>Reg Number: {regNumber}</span>
               </div>
             </div>
@@ -566,36 +566,36 @@ export function Profile() {
       <div className="px-5 -mt-4 pb-8 space-y-4">
         {/* Horizontal Stats */}
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 pt-1">
-          <Card className="min-w-[130px] p-3 text-center rounded-2xl bg-white shadow-sm flex-1 border border-gray-100">
-            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-2">
-              <PiggyBank className="w-4 h-4" />
+          <Card className="min-w-[130px] rounded-2xl border border-gray-100 bg-white p-3.5 text-center shadow-sm flex-1">
+            <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <PiggyBank className="size-4" />
             </div>
-            <p className="text-[11px] font-medium text-gray-500">Total Savings</p>
-            <p className="text-xs font-bold text-gray-900 mt-0.5">{formatNaira(totalSaved)}</p>
+            <p className="text-xs font-medium text-gray-500">Total Savings</p>
+            <p className="mt-0.5 text-sm font-bold text-gray-900">{formatNaira(totalSaved)}</p>
           </Card>
 
-          <Card className="min-w-[130px] p-3 text-center rounded-2xl bg-white shadow-sm flex-1 border border-gray-100">
-            <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2">
-              <HandCoins className="w-4 h-4" />
+          <Card className="min-w-[130px] rounded-2xl border border-gray-100 bg-white p-3.5 text-center shadow-sm flex-1">
+            <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+              <HandCoins className="size-4" />
             </div>
-            <p className="text-[11px] font-medium text-gray-500">Active Loan</p>
-            <p className="text-xs font-bold text-gray-900 mt-0.5">{formatNaira(activeLoanAmount)}</p>
+            <p className="text-xs font-medium text-gray-500">Active Loan</p>
+            <p className="mt-0.5 text-sm font-bold text-gray-900">{formatNaira(activeLoanAmount)}</p>
           </Card>
 
-          <Card className="min-w-[130px] p-3 text-center rounded-2xl bg-white shadow-sm flex-1 border border-gray-100">
-            <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-2">
-              <UserCheck className="w-4 h-4" />
+          <Card className="min-w-[130px] rounded-2xl border border-gray-100 bg-white p-3.5 text-center shadow-sm flex-1">
+            <div className="mx-auto mb-2 flex size-9 items-center justify-center rounded-full bg-teal-50 text-teal-600">
+              <UserCheck className="size-4" />
             </div>
-            <p className="text-[11px] font-medium text-gray-500">Referral Code</p>
-            <p className="text-xs font-bold text-gray-900 mt-0.5">{user?.referralCode || "N/A"}</p>
+            <p className="text-xs font-medium text-gray-500">Referral Code</p>
+            <p className="mt-0.5 text-sm font-bold text-gray-900">{user?.referralCode || "N/A"}</p>
           </Card>
         </div>
 
-        <Card className="p-4 rounded-2xl bg-white shadow-sm border border-gray-100">
+        <Card className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold text-gray-900">Your referral link</p>
-              <p className="text-xs text-gray-500 mt-1 break-all">{referralLink || "Referral code unavailable"}</p>
+              <p className="mt-1 break-all text-xs text-gray-500">{referralLink || "Referral code unavailable"}</p>
             </div>
             <button
               type="button"
@@ -617,25 +617,25 @@ export function Profile() {
               <button
                 key={item.title}
                 onClick={item.action}
-                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:bg-gray-50 transition-all text-left"
+                className="w-full flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-[#3b5bdb]">
-                    <Icon className="w-5 h-5" />
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[#3b5bdb]">
+                    <Icon className="size-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-gray-900">{item.title}</span>
                       {item.badge && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 capitalize">
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 capitalize">
                           {item.badge.replace("_", " ")}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{item.subtitle}</p>
+                    <p className="mt-0.5 text-xs text-gray-500">{item.subtitle}</p>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <ChevronRight className="size-4 shrink-0 text-gray-400" />
               </button>
             );
           })}
@@ -646,7 +646,7 @@ export function Profile() {
           onClick={handleLogout}
           className="w-full py-3.5 flex items-center justify-center gap-2 text-red-600 font-semibold text-sm bg-red-50 hover:bg-red-100 rounded-2xl transition-colors mt-6"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="size-4" />
           Log Out
         </button>
       </div>
@@ -657,10 +657,10 @@ export function Profile() {
       {activeModal === "info" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">Personal Information</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+                <X className="size-5 text-gray-500" />
               </button>
             </div>
 
@@ -730,10 +730,10 @@ export function Profile() {
       {activeModal === "bank" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">Bank Details</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+                <X className="size-5 text-gray-500" />
               </button>
             </div>
 
@@ -821,10 +821,10 @@ export function Profile() {
       {activeModal === "kyc" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">KYC Verification</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+                <X className="size-5 text-gray-500" />
               </button>
             </div>
 
@@ -832,7 +832,7 @@ export function Profile() {
             {kycStatus === "rejected" && (
               <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
                 <p className="text-xs font-bold text-red-700 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" /> Document Rejected — Replacement Required
+                  <AlertTriangle className="size-3.5" /> Document Rejected — Replacement Required
                 </p>
                 {user?.kycRejectionReason && (
                   <p className="text-[11px] text-red-600 mt-1">Reason: {user.kycRejectionReason}</p>
@@ -847,7 +847,7 @@ export function Profile() {
             {user?.documentUrl && (
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <FileText className="w-5 h-5 text-[#3b5bdb]" />
+                  <FileText className="size-5 text-[#3b5bdb]" />
                   <div>
                     <p className="text-xs font-semibold text-gray-800">Uploaded Document</p>
                     <p className="text-[10px] text-gray-500 uppercase">{user.documentType || "Verification File"}</p>
@@ -859,7 +859,7 @@ export function Profile() {
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs font-medium text-[#3b5bdb] hover:underline"
                 >
-                  <Eye className="w-3.5 h-3.5" /> View
+                  <Eye className="size-3.5" /> View
                 </a>
               </div>
             )}
@@ -918,12 +918,12 @@ export function Profile() {
       {activeModal === "pin" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">
                 {user?.isPinSet ? "Update Transaction PIN" : "Set Transaction PIN"}
               </h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+                <X className="size-5 text-gray-500" />
               </button>
             </div>
 
@@ -955,10 +955,10 @@ export function Profile() {
       {activeModal === "photo" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">Profile Photo</h3>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
+              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+                <X className="size-5 text-gray-500" />
               </button>
             </div>
 
@@ -1002,7 +1002,7 @@ export function Profile() {
                 onClick={() => photoInputRef.current?.click()}
                 className="rounded-full bg-[#1d2d6d]"
               >
-                <ImagePlus className="w-4 h-4" />
+                <ImagePlus className="size-4" />
                 {user?.avatarUrl ? "Replace Photo" : "Upload Photo"}
               </Button>
 
@@ -1014,7 +1014,7 @@ export function Profile() {
                   onClick={handleRemovePhoto}
                   className="rounded-full border-red-200 text-red-600 hover:bg-red-50"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="size-4" />
                   Remove Photo
                 </Button>
               )}

@@ -5,6 +5,7 @@ import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 import { formatNaira } from "@/utils/format";
+import { buildReceiptData } from "@/utils/receiptData";
 
 /**
  * Membership fee success page.
@@ -38,8 +39,16 @@ export function MembershipSuccessPage() {
     }
   }, [status]);
 
-  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const confirmedAmount = transaction
+    ? Number(transaction.amount || 0)
+    : expectedAmount;
   const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  // Canonical receipt model — built only from the backend-confirmed record.
+  const receipt = useMemo(
+    () => (transaction ? buildReceiptData(transaction) : null),
+    [transaction]
+  );
 
   const details = useMemo(() => {
     return [
@@ -105,6 +114,7 @@ export function MembershipSuccessPage() {
         details={details}
         actions={actions}
         status={receiptStatus}
+        receipt={receipt}
       />
     </div>
   );

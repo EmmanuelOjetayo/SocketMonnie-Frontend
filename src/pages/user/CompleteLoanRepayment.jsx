@@ -5,6 +5,7 @@ import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 import { formatNaira } from "@/utils/format";
+import { buildReceiptData } from "@/utils/receiptData";
 
 /**
  * Complete Loan Repayment success page.
@@ -41,9 +42,25 @@ export function CompleteLoanRepayment() {
     }
   }, [status]);
 
-  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const confirmedAmount = transaction
+    ? Number(transaction.amount || 0)
+    : expectedAmount;
   const displayMethod = transaction?.method || expectedMethod || "bank_transfer";
   const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  // Canonical receipt model — built only from the backend-confirmed record.
+  const receipt = useMemo(
+    () =>
+      transaction
+        ? buildReceiptData(transaction, {
+            metadata:
+              expectedRemainingBalance != null
+                ? { remainingBalance: expectedRemainingBalance }
+                : {},
+          })
+        : null,
+    [transaction, expectedRemainingBalance]
+  );
 
   const details = useMemo(() => {
     return [
@@ -114,6 +131,7 @@ export function CompleteLoanRepayment() {
         details={details}
         actions={actions}
         status={receiptStatus}
+        receipt={receipt}
       />
     </div>
   );

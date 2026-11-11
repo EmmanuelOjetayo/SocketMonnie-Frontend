@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
 import { TopHeader } from "@/components/navigation/TopHeader";
 import { SuccessReceipt } from "@/components/success/SuccessReceipt";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
+import { buildReceiptData } from "@/utils/receiptData";
 
 /**
  * Loan repayment success page.
@@ -42,9 +42,25 @@ export function LoanRepaySuccess() {
     }
   }, [status]);
 
-  const confirmedAmount = isSuccess && transaction ? Number(transaction.amount || 0) : expectedAmount;
+  const confirmedAmount = transaction
+    ? Number(transaction.amount || 0)
+    : expectedAmount;
   const displayMethod = transaction?.method || expectedMethod || "bank_transfer";
   const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
+
+  // Canonical receipt model — built only from the backend-confirmed record.
+  const receipt = useMemo(
+    () =>
+      transaction
+        ? buildReceiptData(transaction, {
+            metadata:
+              expectedRemainingBalance != null
+                ? { remainingBalance: expectedRemainingBalance }
+                : {},
+          })
+        : null,
+    [transaction, expectedRemainingBalance]
+  );
 
   const details = useMemo(() => {
     return [
@@ -79,7 +95,6 @@ export function LoanRepaySuccess() {
     if (isSuccess) {
       return [
         { label: "Back to Loans", variant: "primary", onClick: () => navigate(ROUTES.LOANS) },
-        { label: "Download Receipt", variant: "outline", onClick: () => toast("Receipt download coming soon") },
       ];
     }
     if (isFailed) {
@@ -116,6 +131,7 @@ export function LoanRepaySuccess() {
         details={details}
         actions={actions}
         status={receiptStatus}
+        receipt={receipt}
       />
     </div>
   );

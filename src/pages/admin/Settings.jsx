@@ -56,15 +56,15 @@ export function AdminSettings() {
       <TopHeader variant="brand" />
 
       <h1 className="text-xl font-bold text-[#090f24]">System Settings</h1>
-      <p className="text-sm text-gray-500 mt-1">Update loan tiers, interest rates, and policies.</p>
+      <p className="text-sm text-text-secondary mt-1">Update loan tiers, interest rates, and policies.</p>
       <p className="text-xs text-amber-600 mt-1">Changes will broadcast to all members.</p>
 
       {/* Loan Tiers */}
-      <Card className="p-4">
-        <h2 className="text-sm font-bold text-[#090f24]">Loan Tiers (% of Net Savings)</h2>
-        <div className="grid grid-cols-3 gap-3 mt-3">
+      <Card className="p-5">
+        <h2 className="text-sm font-bold text-text-primary">Loan Tiers (% of Net Savings)</h2>
+        <div className="grid grid-cols-3 gap-3 mt-4">
           <div>
-            <label className="text-xs text-gray-500">First Loan</label>
+            <label className="text-xs font-medium text-text-secondary">First Loan</label>
             <Input
               type="number"
               step="0.01"
@@ -73,7 +73,7 @@ export function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Second Loan</label>
+            <label className="text-xs font-medium text-text-secondary">Second Loan</label>
             <Input
               type="number"
               step="0.01"
@@ -82,7 +82,7 @@ export function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Third+ Loan</label>
+            <label className="text-xs font-medium text-text-secondary">Third+ Loan</label>
             <Input
               type="number"
               step="0.01"
@@ -94,9 +94,9 @@ export function AdminSettings() {
       </Card>
 
       {/* Interest Rates */}
-      <Card className="p-4">
-        <h2 className="text-sm font-bold text-[#090f24]">Interest Rates by Tier</h2>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      <Card className="p-5">
+        <h2 className="text-sm font-bold text-text-primary">Interest Rates by Tier</h2>
+        <div className="grid grid-cols-2 gap-3 mt-4">
           {['bronze', 'silver', 'gold', 'platinum'].map((tier) => (
             <div key={tier}>
               <label className="text-xs text-gray-500 capitalize">{tier}</label>
@@ -112,11 +112,11 @@ export function AdminSettings() {
       </Card>
 
       {/* Eligibility */}
-      <Card className="p-4">
-        <h2 className="text-sm font-bold text-[#090f24]">Eligibility Requirements</h2>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      <Card className="p-5">
+        <h2 className="text-sm font-bold text-text-primary">Eligibility Requirements</h2>
+        <div className="grid grid-cols-2 gap-3 mt-4">
           <div>
-            <label className="text-xs text-gray-500">Min Savings (₦)</label>
+            <label className="text-xs font-medium text-text-secondary">Min Savings (₦)</label>
             <Input
               type="number"
               value={settings.eligibility.minSavings}
@@ -124,7 +124,7 @@ export function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Min Months</label>
+            <label className="text-xs font-medium text-text-secondary">Min Months</label>
             <Input
               type="number"
               value={settings.eligibility.minMonths}
@@ -135,11 +135,11 @@ export function AdminSettings() {
       </Card>
 
       {/* Fees */}
-      <Card className="p-4">
-        <h2 className="text-sm font-bold text-[#090f24]">Fees & Penalties</h2>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      <Card className="p-5">
+        <h2 className="text-sm font-bold text-text-primary">Fees & Penalties</h2>
+        <div className="grid grid-cols-2 gap-3 mt-4">
           <div>
-            <label className="text-xs text-gray-500">Withdrawal Fee (₦)</label>
+            <label className="text-xs font-medium text-text-secondary">Withdrawal Fee (₦)</label>
             <Input
               type="number"
               value={settings.withdrawalFee}
@@ -147,7 +147,7 @@ export function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Late Penalty Rate (%)</label>
+            <label className="text-xs font-medium text-text-secondary">Late Penalty Rate (%)</label>
             <Input
               type="number"
               step="0.1"
@@ -159,11 +159,11 @@ export function AdminSettings() {
       </Card>
 
       {/* Referral Rewards */}
-      <Card className="p-4">
-        <h2 className="text-sm font-bold text-[#090f24]">Referral Rewards</h2>
-        <div className="grid grid-cols-2 gap-3 mt-3">
+      <Card className="p-5">
+        <h2 className="text-sm font-bold text-text-primary">Referral Rewards</h2>
+        <div className="grid grid-cols-2 gap-3 mt-4">
           <div>
-            <label className="text-xs text-gray-500">Referrer Reward (₦)</label>
+            <label className="text-xs font-medium text-text-secondary">Referrer Reward (₦)</label>
             <Input
               type="number"
               value={settings.referralReward?.referrerAmount ?? 500}
@@ -179,7 +179,7 @@ export function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500">Referred User Reward (₦)</label>
+            <label className="text-xs font-medium text-text-secondary">Referred User Reward (₦)</label>
             <Input
               type="number"
               value={settings.referralReward?.referredUserAmount ?? 0}
@@ -195,7 +195,7 @@ export function AdminSettings() {
             />
           </div>
           <div className="col-span-2">
-            <label className="text-xs text-gray-500">Qualification Event</label>
+            <label className="text-xs font-medium text-text-secondary">Qualification Event</label>
             <select
               className="w-full rounded-2xl border border-[#bdc8f3]/40 bg-white px-3 py-2 text-xs font-semibold text-[#090f24] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
               value={settings.referralReward?.qualificationEvent || "membership_fee_paid"}

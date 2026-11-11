@@ -5,16 +5,24 @@ import {
   ArrowLeft,
   Wallet,
   Percent,
-  BarChart2,
   Building2,
   User,
   CreditCard,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { OtpInput } from "@/components/forms/OtpInput";
+import { TransactionPinSheet } from "@/components/forms/TransactionPinSheet";
 import { requestWithdrawal } from "@/services/savings";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
+
+/** Show only the last four digits — the confirmation page never needs the full account number. */
+function maskAccount(accountNumber) {
+  const digits = String(accountNumber || "");
+  if (digits.length < 4) return digits || "—";
+  return `•••• ${digits.slice(-4)}`;
+}
 
 export function ConfirmWithdrawal() {
   const { state } = useLocation();
@@ -28,76 +36,58 @@ export function ConfirmWithdrawal() {
     fee = 100,
   } = state || {};
 
-  const [pin, setPin] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [pinSheetOpen, setPinSheetOpen] = useState(false);
 
-  const total = Number(amount || 0) + Number(fee || 0);
+  const numericAmount = Number(amount || 0);
+  const numericFee = Number(fee || 0);
+  // Matches SavingsService.requestWithdrawal: the fee is charged on top of
+  // the withdrawal amount, so `amount + fee` leaves the savings balance.
+  const totalDeduction = numericAmount + numericFee;
 
   useEffect(() => {
     if (!amount || !bankName || !accountName || !accountNumber) {
       toast.error("Invalid withdrawal session. Please start again.");
       navigate(ROUTES.SAVINGS_WITHDRAW, { replace: true });
     }
-  }, [
-    amount,
-    bankName,
-    accountName,
-    accountNumber,
-    navigate,
-  ]);
+  }, [amount, bankName, accountName, accountNumber, navigate]);
 
-  async function handleConfirm() {
-    if (!/^\d{4}$/.test(pin)) {
-      return toast.error("Please enter your 4-digit transaction PIN.");
+  /**
+   * Called by the PIN sheet once the member has entered their PIN. The sheet
+   * keeps the sheet open on failure (showing the backend error) and closes it
+   * on success, so authorization can never run twice from one confirmation.
+   */
+  async function handleAuthorize(pin) {
+    const response = await requestWithdrawal({
+      amount: numericAmount,
+      accountNumber,
+      accountName,
+      bankName,
+      pin,
+    });
+
+    if (!response?.success) {
+      throw new Error(response?.message || "Withdrawal request failed.");
     }
 
-    setIsLoading(true);
+    toast.success("Withdrawal request submitted successfully.");
 
-    try {
-      const response = await requestWithdrawal({
-        amount: Number(amount),
-        accountNumber,
-        accountName,
-        bankName,
-        pin,
-      });
+    setPinSheetOpen(false);
 
-      if (!response?.success) {
-        throw new Error(
-          response?.message || "Withdrawal request failed."
-        );
-      }
-
-      toast.success("Withdrawal request submitted successfully.");
-
-      navigate(ROUTES.SAVINGS_WITHDRAW_SUCCESS, {
-        state: {
-          amount,
-          fee,
-          totalDeducted: total,
-          isPending: true,
-          status: "pending_approval",
-          destinationBank: {
-            bankName,
-            accountName,
-            accountNumber,
-          },
-          reference:
-            response?.data?.reference ||
-            response?.data?.withdrawal?.reference ||
-            `WTH_REQ_${Date.now()}`,
-          date: new Date().toISOString(),
-        },
-      });
-    } catch (error) {
-      toast.error(
-        error?.data?.message ||
-          error?.message ||
-          "Unable to process withdrawal request."
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    navigate(ROUTES.SAVINGS_WITHDRAW_SUCCESS, {
+      state: {
+        amount: numericAmount,
+        fee: numericFee,
+        totalDeducted: totalDeduction,
+        isPending: true,
+        status: "pending_approval",
+        destinationBank: { bankName, accountName, accountNumber },
+        reference:
+          response?.data?.reference ||
+          response?.data?.withdrawal?.reference ||
+          `WTH_REQ_${Date.now()}`,
+        date: new Date().toISOString(),
+      },
+    });
   }
 
   return (
@@ -132,81 +122,94 @@ export function ConfirmWithdrawal() {
       </header>
 
       <main className="mt-4 space-y-5 px-4">
-        {/* Withdrawal Summary */}
-        <section className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-md">
-          <h2 className="text-sm font-extrabold">
-            Withdrawal Summary
-          </h2>
+        {/* Amount + charges */}
+        <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-md">
+          <div className="text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-600">
+              <Wallet className="size-3.5" />
+              Amount to withdraw
+            </span>
 
-          <div className="space-y-3">
-            <SummaryRow
-              icon={Wallet}
-              label="Amount"
-              value={formatNaira(amount, { decimals: 2 })}
-            />
+            <p className="mt-2 text-3xl font-black tracking-tight text-text-primary">
+              {formatNaira(numericAmount, { decimals: 2 })}
+            </p>
 
+            <p className="mt-1 text-[11px] text-text-secondary">
+              Paid into your verified bank account
+            </p>
+          </div>
+
+          <div className="mt-5 space-y-2.5 border-t border-gray-100 pt-4">
             <SummaryRow
               icon={Percent}
               label="Withdrawal fee"
-              value={formatNaira(fee, { decimals: 2 })}
+              value={formatNaira(numericFee, { decimals: 2 })}
             />
 
             <SummaryRow
-              icon={BarChart2}
-              label="Total deduction"
-              value={formatNaira(total, { decimals: 2 })}
+              icon={Wallet}
+              label="Total deduction from savings"
+              value={formatNaira(totalDeduction, { decimals: 2 })}
               emphasize
             />
+          </div>
+        </section>
 
+        {/* Destination */}
+        <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-md">
+          <h2 className="text-sm font-extrabold text-text-primary">
+            Destination account
+          </h2>
+
+          <div className="mt-3 space-y-2.5">
             <SummaryRow
               icon={Building2}
-              label="Destination Bank"
+              label="Bank"
               value={bankName}
             />
 
             <SummaryRow
               icon={User}
-              label="Account Name"
+              label="Account name"
               value={accountName}
             />
 
             <SummaryRow
               icon={CreditCard}
-              label="Account Number"
-              value={accountNumber}
+              label="Account number"
+              value={maskAccount(accountNumber)}
             />
           </div>
         </section>
 
-        {/* PIN */}
-        <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-extrabold">
-            Enter your 4-digit transaction PIN
-          </label>
-
-          <OtpInput
-            length={4}
-            value={pin}
-            onChange={setPin}
-          />
-
-          <p className="text-[11px] font-medium text-amber-700">
-            This withdrawal request will be sent to admin for
-            approval before the payout is processed.
+        {/* Approval note */}
+        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-100 bg-amber-50 p-3.5">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+          <p className="text-[11px] leading-relaxed text-amber-800">
+            This withdrawal request is sent to an admin for approval before the
+            payout is processed. You&rsquo;ll be notified once it&rsquo;s approved.
           </p>
-        </section>
+        </div>
 
-        {/* Confirm */}
+        {/* Confirm — opens the PIN bottom sheet */}
         <Button
           fullWidth
           size="lg"
-          isLoading={isLoading}
-          disabled={isLoading || !/^\d{4}$/.test(pin)}
-          onClick={handleConfirm}
+          icon={ShieldCheck}
+          onClick={() => setPinSheetOpen(true)}
         >
-          Confirm Withdrawal
+          Confirm withdrawal
         </Button>
       </main>
+
+      <TransactionPinSheet
+        isOpen={pinSheetOpen}
+        onClose={() => setPinSheetOpen(false)}
+        onComplete={handleAuthorize}
+        context={`${formatNaira(numericAmount, {
+          decimals: 2,
+        })} to ${bankName} ${maskAccount(accountNumber)}`}
+      />
     </div>
   );
 }
@@ -218,13 +221,19 @@ function SummaryRow({
   emphasize = false,
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-gray-100 p-3">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 p-3">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+            emphasize
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-indigo-100 text-indigo-600"
+          }`}
+        >
           <Icon className="h-5 w-5" />
         </div>
 
-        <span className="text-xs font-bold text-gray-800">
+        <span className="truncate text-xs font-bold text-gray-800">
           {label}
         </span>
       </div>
