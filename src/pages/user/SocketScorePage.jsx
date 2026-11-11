@@ -23,13 +23,11 @@ import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { useAsync } from "@/hooks/useAsync";
 import {
-  getScoreSummary,
   getScoreBreakdown,
   getMonthlyHistory,
   getScoreExplanation,
   finalizeMonthlyScore,
 } from "@/services/scoreService";
-import { getScoreRating } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import toast from "react-hot-toast";
 
@@ -259,19 +257,29 @@ export function SocketScorePage() {
   const summary = summaryRes?.data || summaryRes || {};
   const breakdownPayload = breakdownRes?.data || breakdownRes || {};
   const components = breakdownPayload.components || [];
-  const history = historyRes?.data || historyRes || [];
   const explanation = explanationRes?.data || explanationRes || {};
 
   const cumulativeScore = Number(
     summary.cumulativeScore ?? summary.socketScore ?? 0
   );
   const currentMonthly = summary.currentMonthlyScore;
-  const { label, tier } = getScoreRating(cumulativeScore);
 
   const animatedScore = useCountUp(cumulativeScore);
 
+  // historyRes is a fresh object per fetch; normalise it once so downstream
+  // memo dependencies stay referentially stable.
+  const history = useMemo(
+    () =>
+      Array.isArray(historyRes?.data)
+        ? historyRes.data
+        : Array.isArray(historyRes)
+        ? historyRes
+        : [],
+    [historyRes]
+  );
+
   const points = useMemo(() => {
-    if (Array.isArray(history) && history.length) {
+    if (history.length) {
       return history.map((h) => ({
         month: h.month,
         year: h.year,

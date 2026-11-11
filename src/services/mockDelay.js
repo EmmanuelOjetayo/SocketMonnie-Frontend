@@ -6,4 +6,4 @@ export const mockDelay = (data, ms = 350) =>
  * Global mock switch. Flip to false once the real backend endpoints
  * documented in each service file are live — no page code changes needed.
  */
-export const USE_MOCK = true;
+export const USE_MOCK = false;
