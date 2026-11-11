@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  ArrowDownLeft,
   ArrowUpRight,
   ChevronDown,
   ChevronRight,
