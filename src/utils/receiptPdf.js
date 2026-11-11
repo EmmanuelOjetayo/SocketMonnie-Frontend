@@ -38,11 +38,27 @@ const PAGE = {
   footerHeight: 64,
 };
 
+/**
+ * jsPDF's standard fonts use WinAnsi encoding, which has no glyph for the
+ * Naira sign (U+20A6) — passing it through produces corrupted bytes in the
+ * document. Currency is therefore written as "NGN" (matching the existing
+ * SocketMonnie statement PDF) and any character outside WinAnsi is
+ * normalised before it reaches the page.
+ */
+function pdfSafe(value) {
+  return String(value ?? "")
+    .replace(/₦/g, "NGN ")
+    .replace(/[—–]/g, "-")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, "?");
+}
+
 /** Truncate a long value to two lines so a row can never overflow. */
 function fitValue(doc, value, maxWidth) {
-  const lines = doc.splitTextToSize(String(value), maxWidth);
+  const lines = doc.splitTextToSize(pdfSafe(value), maxWidth);
   if (lines.length <= 2) return lines;
-  const clipped = [lines[0], `${lines[1].slice(0, Math.max(0, lines[1].length - 1))}…`];
+  const clipped = [lines[0], `${lines[1].slice(0, Math.max(0, lines[1].length - 1))}...`];
   return clipped;
 }
 
@@ -119,18 +135,18 @@ export async function buildReceiptPdf(data) {
     doc.setTextColor(COLORS.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
-    doc.text(formatNaira(data.amount, { decimals: 2 }), PAGE.margin, y + 48);
+    doc.text(pdfSafe(formatNaira(data.amount, { decimals: 2 })), PAGE.margin, y + 48);
 
     doc.setTextColor(COLORS.accent);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text(data.typeLabel, PAGE.margin, y + 68);
+    doc.text(pdfSafe(data.typeLabel), PAGE.margin, y + 68);
 
     if (data.occurredAtLabel) {
       doc.setTextColor(COLORS.muted);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(data.occurredAtLabel, PAGE.margin, y + 84);
+      doc.text(pdfSafe(data.occurredAtLabel), PAGE.margin, y + 84);
     }
 
     y += 104;
@@ -158,7 +174,7 @@ export async function buildReceiptPdf(data) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(COLORS.muted);
-    const labelLines = doc.splitTextToSize(String(row.label), labelWidth);
+    const labelLines = doc.splitTextToSize(pdfSafe(row.label), labelWidth);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
@@ -215,7 +231,9 @@ export async function buildReceiptPdf(data) {
       doc.setFontSize(8);
       doc.setTextColor(COLORS.faint);
       doc.text(
-        "Generated from your SocketMonnie account records. Amounts in Nigerian Naira (₦).",
+        pdfSafe(
+          "Generated from your SocketMonnie account records. Amounts in Nigerian Naira (NGN)."
+        ),
         PAGE.margin,
         footerY
       );
@@ -227,7 +245,7 @@ export async function buildReceiptPdf(data) {
         hour: "2-digit",
         minute: "2-digit",
       });
-      doc.text(`Generated: ${generated}`, PAGE.margin, footerY + 12);
+      doc.text(pdfSafe(`Generated: ${generated}`), PAGE.margin, footerY + 12);
       doc.text(
         `Page ${page} of ${total}`,
         pageWidth - PAGE.margin,
