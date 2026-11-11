@@ -37,7 +37,7 @@ const QUICK_ACTIONS = [
   { to: ROUTES.SOCKET_SCORE, icon: Award, label: "SocketScore" },
   { to: ROUTES.LOAN_APPLY, icon: Coins, label: "Apply Loan" },
   { to: ROUTES.LOANS, icon: Calendar, label: "Pay Loan" },
-  { to: ROUTES.PROFILE, icon: Gift, label: "Referral" },
+  { to: ROUTES.PROFILE, icon: Gift, label: "Profile" },
   { to: ROUTES.REPORTS, icon: FileText, label: "Statement" },
 ];
 
