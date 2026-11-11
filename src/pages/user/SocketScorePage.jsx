@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { useAsync } from "@/hooks/useAsync";
 import {
+  getScoreSummary,
   getScoreBreakdown,
   getMonthlyHistory,
   getScoreExplanation,
@@ -321,8 +322,6 @@ export function SocketScorePage() {
       setFinalizing(false);
     }
   }
-
-  const loading = loadingSummary || loadingBreakdown || loadingHistory;
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-[#F8FAFC] pb-10 font-sans text-[#090f24] sm:max-w-2xl">

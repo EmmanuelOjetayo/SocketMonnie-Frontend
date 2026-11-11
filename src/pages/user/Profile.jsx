@@ -12,7 +12,6 @@ import {
   HandCoins,
   Lock,
   UserCheck,
-  Handshake,
   Bell,
   Eye,
   FileText,

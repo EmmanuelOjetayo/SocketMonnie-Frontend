@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAsync } from "@/hooks/useAsync";
 import { getSystemSettings, updateSystemSettings } from "@/services/adminService";
-import { formatNaira } from "@/utils/format";
 
 export function AdminSettings() {
   const { data, isLoading, refetch } = useAsync(getSystemSettings, []);
