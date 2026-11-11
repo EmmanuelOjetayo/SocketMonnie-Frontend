@@ -21,6 +21,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { KycDocumentPreview } from "@/components/modals/KycDocumentPreview";
+import { TopHeader } from "@/components/navigation/TopHeader";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
