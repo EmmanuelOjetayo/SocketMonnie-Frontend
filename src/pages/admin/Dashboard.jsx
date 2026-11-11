@@ -1,14 +1,14 @@
-import { Sparkles, Users, Landmark, Percent, DollarSign } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { TopHeader } from "@/components/navigation/TopHeader";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { getAdminReports } from "@/services/adminService";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
+import { Sparkles, Users, Landmark, Percent, DollarSign } from "lucide-react";
 
 export function AdminDashboard() {
-  const { data, isLoading } = useAsync(() => getAdminReports({ type: "overview" }), []);
+  const { data, isLoading, error } = useAsync(() => getAdminReports({ type: "overview" }), []);
   const stats = data?.stats || {};
 
   if (isLoading) return <LoadingState rows={2} />;
@@ -25,7 +25,6 @@ export function AdminDashboard() {
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
-              <Sparkles className="size-4 text-emerald-400" />
               <span className="text-xs font-semibold">Admin Command Center</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
@@ -42,32 +41,41 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* Stats Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <StatCard
-            icon={Users}
-            label="Total Members"
-            value={stats.totalMembers?.toLocaleString() || "0"}
-            trend={`+${stats.newMembers || 0} this month`}
-          />
-          <StatCard
-            icon={Landmark}
-            label="Active Loans"
-            value={stats.activeLoans?.toLocaleString() || "0"}
-            trend={stats.loanOutstanding ? `${formatNaira(stats.loanOutstanding)} outstanding` : ""}
-          />
-          <StatCard
-            icon={Percent}
-            label="Default Rate"
-            value={`${stats.defaultRate || 0}%`}
-          />
-          <StatCard
-            icon={DollarSign}
-            label="Revenue This Month"
-            value={formatNaira(stats.revenue || 0)}
-            trend={`+${stats.revenueGrowth || 0}% from last month`}
-          />
-        </div>
+        {error ? (
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 p-5 text-center">
+            <p className="text-sm font-bold text-rose-700">Could not load the admin overview</p>
+            <p className="mt-1 text-xs text-rose-600">{error?.message || "Unexpected error"}</p>
+          </div>
+        ) : (
+          <>
+            {/* Stats Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <AdminStatCard
+                icon={Users}
+                label="Total Members"
+                value={stats.totalMembers?.toLocaleString() || "0"}
+                trend={`+${stats.newMembers || 0} this month`}
+              />
+              <AdminStatCard
+                icon={Landmark}
+                label="Active Loans"
+                value={stats.activeLoans?.toLocaleString() || "0"}
+                trend={stats.loanOutstanding ? `${formatNaira(stats.loanOutstanding)} outstanding` : ""}
+              />
+              <AdminStatCard
+                icon={Percent}
+                label="Default Rate"
+                value={`${stats.defaultRate || 0}%`}
+              />
+              <AdminStatCard
+                icon={DollarSign}
+                label="Revenue This Month"
+                value={formatNaira(stats.revenue || 0)}
+                trend={`+${stats.revenueGrowth || 0}% from last month`}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
