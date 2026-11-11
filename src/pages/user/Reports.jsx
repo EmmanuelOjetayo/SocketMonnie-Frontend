@@ -1,22 +1,20 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Wallet,
   HandCoins,
-  Star,
   Award,
   BarChart3,
   CreditCard,
   ArrowRightLeft,
   Download,
-  Home,
   FileText,
-  UserCircle,
   Calendar,
-  PiggyBank,
   Landmark,
-  Receipt,
+  Search,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -35,7 +33,7 @@ import {
   downloadStatementPdf,
 } from "@/services/reports";
 
-import { formatNaira } from "@/utils/format";
+import { formatNaira, formatDate, getScoreRating } from "@/utils/format";
 
 const MONTH_LABELS = [
   "January",
@@ -70,6 +68,34 @@ const REPORT_TYPES = [
   },
 ];
 
+/*
+ * Money-flow tone by transaction category. Withdrawals and loan repayments
+ * move money OUT of the member's pocket; savings deposits and loan
+ * disbursements move money IN. Product fees (minutes contributions,
+ * membership) are shown neutrally — they are neither savings-in nor
+ * savings-out, and printing a misleading sign would misstate the accounts.
+ */
+function moneyTone(tx) {
+  const category = tx.category || "";
+  if (category === "withdrawal" || category === "loan_repayment") {
+    return { sign: "−", className: "text-red-500" };
+  }
+  if (category === "deposit" || category === "loan_disbursement") {
+    return { sign: "+", className: "text-emerald-600" };
+  }
+  return { sign: "", className: "text-indigo-600" };
+}
+
+function statusTone(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "completed" || s === "approved") return "text-emerald-600";
+  if (s.includes("pending") || s === "processing") return "text-amber-600";
+  if (["failed", "rejected", "cancelled", "terminated"].includes(s)) {
+    return "text-red-500";
+  }
+  return "text-gray-400";
+}
+
 export function Reports() {
   const navigate = useNavigate();
 
@@ -82,6 +108,14 @@ export function Reports() {
 
   const [activeTab, setActiveTab] = useState("savings");
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Transaction-tab filters (status + search) and "show more" paging.
+  const [txStatus, setTxStatus] = useState("all");
+  const [txSearch, setTxSearch] = useState("");
+  const [txVisible, setTxVisible] = useState(10);
+
+  // Statement years: the last three years, always ending at the current one.
+  const years = [currentYearValue - 2, currentYearValue - 1, currentYearValue];
 
   // Past months for the quick filter row, most recent first, alongside
   // the "This Month" shortcut which always maps to the current month/year.
@@ -110,6 +144,8 @@ export function Reports() {
   const {
     data: statementRes,
     isLoading: loadingStatement,
+    error: statementError,
+    refetch: refetchStatement,
   } = useAsync(
     () =>
       getMonthlyStatement({
@@ -130,7 +166,47 @@ export function Reports() {
     statementRes ||
     {};
 
-  const transactions = statement?.transactions || [];
+  // Unified transaction rows (TransactionService shape):
+  // { id, type, category, label, amount, direction, status, reference, method, date }
+  const transactions = Array.isArray(statement?.transactions)
+    ? statement.transactions
+    : [];
+
+  // Reset paging whenever the period or filters change.
+  const filterKey = `${selectedMonth}-${selectedYear}-${txStatus}-${txSearch}`;
+  useEffect(() => {
+    setTxVisible(10);
+  }, [filterKey]);
+  const visibleTransactions = useMemo(() => {
+    const query = txSearch.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      if (txStatus !== "all" && tx.status !== txStatus) return false;
+      if (!query) return true;
+      return (
+        String(tx.label || "").toLowerCase().includes(query) ||
+        String(tx.category || "").toLowerCase().includes(query) ||
+        String(tx.reference || "").toLowerCase().includes(query)
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, txStatus, txSearch, filterKey]);
+
+  // Honest totals for the filtered view: completed money movement only.
+  const txTotals = useMemo(() => {
+    let credits = 0;
+    let debits = 0;
+    visibleTransactions.forEach((tx) => {
+      if (tx.status !== "completed") return;
+      const amount = Number(tx.amount || 0);
+      if (tx.category === "deposit" || tx.category === "loan_disbursement") {
+        credits += amount;
+      }
+      if (tx.category === "withdrawal" || tx.category === "loan_repayment") {
+        debits += amount;
+      }
+    });
+    return { credits, debits };
+  }, [visibleTransactions]);
 
   /*
    * Backend values
@@ -153,8 +229,11 @@ export function Reports() {
       0
   );
 
-  const netGrowth =
-    totalDeposits - totalWithdrawals;
+  // Backend-computed net growth (completed money movement only); falls back
+  // to the same arithmetic if an older backend is serving.
+  const netGrowth = Number(
+    statement?.savings?.netGrowth ?? totalDeposits - totalWithdrawals
+  );
 
   const growthRate = Number(
     statement?.savings?.growthRate ?? 0
@@ -168,17 +247,26 @@ export function Reports() {
     statement?.loans?.principalAmount ?? 0
   );
 
+  // Interest attached to the member's active loan positions.
+  const activeInterest = Number(
+    statement?.loans?.interestAmount ?? 0
+  );
+
+  const activeLoanCount = Number(
+    statement?.loans?.activeCount ??
+      statement?.loans?.activeLoansCount ??
+      0
+  );
+
   const amountPaid = Number(
-    statement?.loans?.amountPaid ?? 0
+    statement?.loans?.amountPaid ?? statement?.loans?.totalRepaid ?? 0
   );
 
   const creditScore = Number(
     statement?.rating?.current ?? 0
   );
 
-  const previousScore = Number(
-    statement?.rating?.previous ?? 0
-  );
+  const previousScore = statement?.rating?.previous; // null when no prior month record
 
   /*
    * Summary cards
@@ -188,9 +276,12 @@ export function Reports() {
       id: "totalSaved",
       title: "Total Saved",
       value: formatNaira(totalSaved),
-      subtext: `${growthRate >= 0 ? "↑" : "↓"} ${Math.abs(
-        growthRate
-      )}%`,
+      subtext:
+        totalSaved === 0 && growthRate === 0
+          ? "—"
+          : `${growthRate >= 0 ? "↑" : "↓"} ${Math.abs(
+              growthRate
+            )}%`,
       subtext2: "vs last month",
       icon: Wallet,
       cardBg: "bg-emerald-50/70 border-emerald-100",
@@ -215,33 +306,29 @@ export function Reports() {
       textColor: "text-indigo-600",
     },
     {
-      id: "pointsEarned",
-      title: "Points Earned",
-      value: statement?.points?.earned ?? 0,
-      subtext:
-        statement?.points?.growth != null
-          ? `↑ ${statement.points.growth}`
-          : "Rewards",
-      subtext2:
-        statement?.points?.growth != null
-          ? "vs last month"
-          : "",
-      icon: Star,
+      id: "netGrowth",
+      title: "Net Growth",
+      value: formatNaira(netGrowth),
+      subtext: "Deposits − withdrawals",
+      subtext2: "this month",
+      icon: ArrowRightLeft,
       cardBg: "bg-teal-50/70 border-teal-100",
       iconBg: "bg-teal-200/60 text-teal-700",
-      textColor: "text-teal-600",
+      textColor:
+        netGrowth >= 0 ? "text-emerald-600" : "text-red-500",
     },
     {
       id: "currentRating",
       title: "Current Rating",
       value:
-        statement?.rating?.grade ||
-        statement?.rating?.currentGrade ||
+        statement?.rating?.label ||
+        getScoreRating(creditScore).label ||
         creditScore ||
         "N/A",
       subtext:
-        statement?.rating?.label ||
-        "Credit Score",
+        statement?.rating?.tier
+          ? `Tier: ${statement.rating.tier}`
+          : "Credit Score",
       subtext2: "",
       icon: Award,
       cardBg: "bg-cyan-50/70 border-cyan-100",
@@ -269,7 +356,7 @@ export function Reports() {
       link.href = url;
       link.setAttribute(
         "download",
-        `SocketMoni_Statement_${selectedMonth}_${selectedYear}.pdf`
+        `SocketMoni_Statement_${MONTH_LABELS[selectedMonth - 1]}_${selectedYear}.pdf`
       );
 
       document.body.appendChild(link);
@@ -369,6 +456,29 @@ export function Reports() {
             );
           })}
         </div>
+
+        {/* STATEMENT ERROR */}
+        {statementError && !loadingStatement && (
+          <div className="flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold text-red-700">
+                Could not load this month&apos;s statement
+              </p>
+              <p className="text-[10px] text-red-500">
+                Check your connection and try again.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={refetchStatement}
+              className="flex shrink-0 items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1.5 text-[10px] font-bold text-white"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* REPORT TYPE */}
         <section>
@@ -473,7 +583,7 @@ export function Reports() {
             }
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold outline-none"
           >
-            {[2024, 2025, 2026].map((year) => (
+            {years.map((year) => (
               <option key={year} value={year}>
                 {year}
               </option>
@@ -541,10 +651,20 @@ export function Reports() {
 
                         <p className="mt-3 text-[9px] font-bold text-gray-400">
                           vs last month{" "}
-                          <span className="text-emerald-500">
-                            {growthRate >= 0 ? "↑" : "↓"}{" "}
-                            {Math.abs(growthRate)}%
-                          </span>
+                          {totalSaved === 0 && growthRate === 0 ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <span
+                              className={
+                                growthRate >= 0
+                                  ? "text-emerald-500"
+                                  : "text-red-500"
+                              }
+                            >
+                              {growthRate >= 0 ? "↑" : "↓"}{" "}
+                              {Math.abs(growthRate)}%
+                            </span>
+                          )}
                         </p>
                       </div>
 
@@ -605,7 +725,9 @@ export function Reports() {
 
                       <p className="mt-0.5 text-xs text-gray-500">
                         Previous Period Score:{" "}
-                        <strong>{previousScore}</strong>
+                        <strong>
+                          {previousScore != null ? previousScore : "—"}
+                        </strong>
                       </p>
                     </div>
                   </Card>
@@ -619,17 +741,28 @@ export function Reports() {
         {activeTab === "loan" && (
           <section>
             <h3 className="mb-2 text-xs font-extrabold text-gray-900">
-              Loan & Credit Overview
+              Loan &amp; Credit Overview
             </h3>
 
             <Card className="space-y-3 rounded-2xl p-4">
+              <ReportMetric
+                label="Active Loan Positions"
+                value={activeLoanCount}
+              />
+
               <ReportMetric
                 label="Active Principal"
                 value={formatNaira(activePrincipal)}
               />
 
               <ReportMetric
-                label="Total Paid Off"
+                label="Interest Charge (active loans)"
+                value={formatNaira(activeInterest)}
+                valueClass="text-amber-600"
+              />
+
+              <ReportMetric
+                label="Total Paid Off (all loans)"
                 value={formatNaira(amountPaid)}
                 valueClass="text-emerald-600"
               />
@@ -650,64 +783,144 @@ export function Reports() {
               Period Activity Breakdown
             </h3>
 
+            {/* Status filter chips */}
+            <div className="mb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
+              {[
+                { id: "all", label: "All" },
+                { id: "completed", label: "Completed" },
+                { id: "pending", label: "Pending" },
+                { id: "failed", label: "Failed" },
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setTxStatus(chip.id)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1 text-[10px] font-bold transition ${
+                    txStatus === chip.id
+                      ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
+              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <input
+                type="text"
+                value={txSearch}
+                onChange={(event) => setTxSearch(event.target.value)}
+                placeholder="Search label or reference…"
+                className="w-full bg-transparent text-[11px] font-medium outline-none placeholder:text-gray-300"
+              />
+              {txSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTxSearch("")}
+                  className="text-[10px] font-bold text-gray-400"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
             <Card className="rounded-2xl p-4">
               {loadingStatement ? (
                 <LoadingState rows={3} />
-              ) : transactions.length === 0 ? (
+              ) : visibleTransactions.length === 0 ? (
                 <EmptyState
                   icon={FileText}
                   title="No transactions"
-                  description="No transaction history recorded for this period."
+                  description={
+                    transactions.length === 0
+                      ? "No transaction history recorded for this period."
+                      : "No transactions match the current filters."
+                  }
                 />
               ) : (
-                <div className="space-y-3">
-                  {transactions.map((tx, index) => {
-                    const isWithdrawal =
-                      tx.type === "withdrawal";
+                <>
+                  <div className="space-y-3">
+                    {visibleTransactions
+                      .slice(0, txVisible)
+                      .map((tx, index) => {
+                        const tone = moneyTone(tx);
 
-                    return (
-                      <div
-                        key={tx._id || index}
-                        className="flex items-center justify-between border-b border-gray-100 pb-3 text-xs last:border-0 last:pb-0"
-                      >
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {tx.description ||
-                              (tx.type
-                                ? tx.type.toUpperCase()
-                                : "DEPOSIT")}
-                          </p>
-
-                          <p className="text-[10px] text-gray-400">
-                            {tx.createdAt
-                              ? new Date(
-                                  tx.createdAt
-                                ).toLocaleDateString()
-                              : "—"}{" "}
-                            • {tx.method || "Transfer"}
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <p
-                            className={`font-bold ${
-                              isWithdrawal
-                                ? "text-red-500"
-                                : "text-emerald-600"
-                            }`}
+                        return (
+                          <div
+                            key={tx.id || index}
+                            className="flex items-center justify-between border-b border-gray-100 pb-3 text-xs last:border-0 last:pb-0"
                           >
-                            {isWithdrawal ? "-" : "+"}
-                            {formatNaira(tx.amount)}
-                          </p>
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-gray-900">
+                                {tx.label ||
+                                  String(
+                                    tx.category || "Transaction"
+                                  ).replace(/_/g, " ")}
+                              </p>
 
-                          <span className="text-[9px] font-bold uppercase text-gray-400">
-                            {tx.status || "completed"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                              <p className="truncate text-[10px] text-gray-400">
+                                {tx.date
+                                  ? formatDate(tx.date, "MMM dd, yyyy")
+                                  : "—"}
+                                {tx.reference
+                                  ? ` • ${tx.reference}`
+                                  : ""}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                              <p
+                                className={`font-bold ${tone.className}`}
+                              >
+                                {tone.sign}
+                                {formatNaira(tx.amount)}
+                              </p>
+
+                              <span
+                                className={`text-[9px] font-bold uppercase ${statusTone(
+                                  tx.status
+                                )}`}
+                              >
+                                {tx.status || "completed"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* View totals + show-more */}
+                  <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold">
+                      <span className="text-gray-500">
+                        In view ({visibleTransactions.length})
+                      </span>
+                      <span className="space-x-2">
+                        <span className="text-emerald-600">
+                          +{formatNaira(txTotals.credits)}
+                        </span>
+                        <span className="text-red-500">
+                          −{formatNaira(txTotals.debits)}
+                        </span>
+                      </span>
+                    </div>
+
+                    {txVisible < visibleTransactions.length && (
+                      <Button
+                        variant="outline"
+                        fullWidth
+                        onClick={() => setTxVisible((n) => n + 10)}
+                      >
+                        Show more (
+                        {visibleTransactions.length - txVisible}{" "}
+                        remaining)
+                      </Button>
+                    )}
+                  </div>
+                </>
               )}
             </Card>
           </section>

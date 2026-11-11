@@ -33,5 +33,12 @@ export async function downloadStatementPdf(params = {}) {
     throw new Error("Failed to generate PDF statement");
   }
 
+  // Guard against a 200 response that is not a PDF (e.g. an HTML login
+  // page served after session expiry) — otherwise a corrupt blob downloads.
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/pdf")) {
+    throw new Error("Received an unexpected file format. Please log in again.");
+  }
+
   return await response.blob();
 }
