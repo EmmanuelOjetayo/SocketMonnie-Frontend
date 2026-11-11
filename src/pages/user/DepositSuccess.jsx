@@ -24,13 +24,11 @@ export function DepositSuccess() {
   const state = location.state || {};
   const stateAmount = state.amount;
   const stateMethod = state.method;
-  const statePreviousBalance = state.previousBalance;
   const stateNewBalance = state.newBalance;
 
   // --- Read from URL query params (Flutterwave callback) ---
   const params = new URLSearchParams(location.search);
   const queryTxRef = params.get("tx_ref") || params.get("reference") || state.reference || null;
-  const queryTransactionId = params.get("transaction_id") || params.get("transactionId") || state.transactionId || null;
   const queryAmount = params.get("amount") ? Number(params.get("amount")) : null;
   const queryMethod = params.get("method") || params.get("paymentMethod") || null;
 

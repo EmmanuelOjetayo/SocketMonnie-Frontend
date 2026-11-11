@@ -44,7 +44,10 @@ export function WithdrawalSuccess() {
   const fee = isConfirmed ? Number(transaction.fee || 0) : Number(expectedFee || 0);
   const total = isConfirmed ? amount + fee : Number(totalDeducted || 0);
 
-  const destination = transaction?.destinationBank || destinationBank || {};
+  const destination = useMemo(
+    () => transaction?.destinationBank || destinationBank || {},
+    [transaction, destinationBank]
+  );
 
   // Canonical receipt — built from the backend record whenever one exists.
   const receipt = useMemo(

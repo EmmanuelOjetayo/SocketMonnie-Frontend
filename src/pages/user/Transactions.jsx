@@ -129,11 +129,10 @@ export function Transactions() {
   // The backend already filters by type/month/year/search; the status
   // filter is applied here on the canonical status of each record.
   const visible = useMemo(() => {
-    if (status === "all") return transactions;
-    return transactions.filter(
-      (tx) => canonicalReceiptStatus(tx.status) === status
-    );
-  }, [transactions, status]);
+    const rows = data?.transactions || [];
+    if (status === "all") return rows;
+    return rows.filter((tx) => canonicalReceiptStatus(tx.status) === status);
+  }, [data, status]);
 
   const hasFilters =
     type !== "all" ||
