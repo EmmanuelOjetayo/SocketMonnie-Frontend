@@ -1,4 +1,11 @@
 import { apiClient } from "./apiClient";
+import { mockDelay, USE_MOCK } from "./mockDelay";
+import {
+  mockScoreSummary,
+  mockScoreBreakdown,
+  mockScoreHistory,
+  mockScoreExplanation,
+} from "@/mock/scores";
 
 /**
  * SocketScore service — all endpoints are auth-protected and member-scoped:
@@ -16,6 +23,7 @@ export async function getMyScore() {
  * GET /api/scores/summary
  */
 export async function getScoreSummary() {
+  if (USE_MOCK) return mockDelay({ success: true, data: mockScoreSummary });
   return apiClient.get("/scores/summary");
 }
 
@@ -24,6 +32,7 @@ export async function getScoreSummary() {
  * GET /api/scores/breakdown
  */
 export async function getScoreBreakdown() {
+  if (USE_MOCK) return mockDelay({ success: true, data: mockScoreBreakdown });
   return apiClient.get("/scores/breakdown");
 }
 
@@ -41,6 +50,7 @@ export async function getScoreHistory({ months = 24 } = {}) {
  * GET /api/scores/monthly-history?limit=24
  */
 export async function getMonthlyHistory({ limit = 24 } = {}) {
+  if (USE_MOCK) return mockDelay({ success: true, data: mockScoreHistory });
   const query = new URLSearchParams({ limit });
   return apiClient.get(`/scores/monthly-history?${query}`);
 }
@@ -59,6 +69,7 @@ export async function getScoreTrend({ limit = 24 } = {}) {
  * GET /api/scores/explanation
  */
 export async function getScoreExplanation() {
+  if (USE_MOCK) return mockDelay({ success: true, data: mockScoreExplanation });
   return apiClient.get("/scores/explanation");
 }
 

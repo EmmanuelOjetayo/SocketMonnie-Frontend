@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowUpRight,
   ArrowDownRight,
   Award,
@@ -17,10 +16,16 @@ import {
   CalendarDays,
   CircleHelp,
   AlertTriangle,
+  Flame,
+  ChevronRight,
+  Trophy,
+  Lock,
 } from "lucide-react";
+
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
+import { TopHeader } from "@/components/navigation/TopHeader";
 import { useAsync } from "@/hooks/useAsync";
 import {
   getScoreSummary,
@@ -29,7 +34,16 @@ import {
   getScoreExplanation,
   finalizeMonthlyScore,
 } from "@/services/scoreService";
+import { ROUTES } from "@/constants/routes";
 import { cn } from "@/utils/cn";
+import {
+  bandFor,
+  nextLevelProgress,
+  classifyComponent,
+  computeStreak,
+  summarizeEvidence,
+  nextActionFor,
+} from "@/utils/scoreProgress";
 import toast from "react-hot-toast";
 
 const MONTHS = [
@@ -52,6 +66,16 @@ const ICON_MAP = {
   "Community Trust": Users,
 };
 
+/** Where a member goes to act on each component. */
+const COMPONENT_ROUTES = {
+  savings_consistency: ROUTES.SAVINGS_DEPOSIT,
+  savings_growth: ROUTES.SAVINGS,
+  loan_repayment: ROUTES.LOANS,
+  withdrawal_behaviour: ROUTES.SAVINGS,
+  profile_completion: ROUTES.PROFILE,
+  community_trust: ROUTES.REFERRALS || ROUTES.DASHBOARD,
+};
+
 const HELP_MAP = {
   savings_consistency: "Score improves when you consistently fulfil your savings commitments. Access matters: verified deposits count; failed gateway requests never count against you.",
   savings_growth: "Your score improves when your savings balance grows. A steady 10% monthly growth earns full marks. Loan money is never counted as growth.",
@@ -66,7 +90,7 @@ const TIPS = [
   "Repay loans on time to keep your repayment score high.",
   "Follow cooperative withdrawal rules and keep a healthy balance.",
   "Complete and verify your profile and KYC documents.",
-  "Participate honestly in the cooperative — verified referrals and legitimate guarantor roles build trust.",
+  "Participate honestly — verified referrals and legitimate guarantor roles build trust.",
   "Do not borrow unnecessarily just to improve your score, and do not avoid legitimate withdrawals out of fear.",
 ];
 
@@ -75,12 +99,19 @@ function periodLabel(p) {
   return `${MONTHS[p.month - 1] || p.month} ${p.year}`;
 }
 
-/** Ease-out count-up used for the headline score. */
+/**
+ * Ease-out count-up used for the headline score.
+ *
+ * The state is seeded with the real score so a throttled/hidden tab (where
+ * requestAnimationFrame may not fire) can never leave a member looking at a
+ * wrong number, and a timer forces the exact value shortly after the
+ * animation should have finished.
+ */
 function useCountUp(target, duration = 900) {
-  const [value, setValue] = useState(0);
+  const numeric = Number(target || 0);
+  const [value, setValue] = useState(numeric);
 
   useEffect(() => {
-    const numeric = Number(target || 0);
     let raf;
     const start = performance.now();
 
@@ -89,11 +120,19 @@ function useCountUp(target, duration = 900) {
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(numeric * eased);
       if (progress < 1) raf = requestAnimationFrame(tick);
+      else setValue(numeric);
     };
 
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
+
+    // Safety net: always settle on the exact score.
+    const settle = setTimeout(() => setValue(numeric), duration + 250);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(settle);
+    };
+  }, [numeric, duration]);
 
   return value;
 }
@@ -113,7 +152,7 @@ function TrendChart({ points }) {
       ? (w - padX * 2) / 2
       : (i / (data.length - 1)) * (w - padX * 2));
   const y = (v) =>
-    h - padY - ((Number(v || 0)) / (max || 1)) * (h - padY * 2);
+    h - padY - ((Number(v || 0)) / max) * (h - padY * 2);
 
   const line = data
     .map(
@@ -197,10 +236,10 @@ function StatusBadge({ status }) {
   const value = String(status || "final").toLowerCase();
   const styles =
     value === "final"
-      ? "bg-emerald-50 text-emerald-700"
+      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
       : value === "provisional"
-      ? "bg-amber-50 text-amber-700"
-      : "bg-gray-100 text-gray-500";
+      ? "bg-amber-50 text-amber-700 border border-amber-200"
+      : "bg-gray-100 text-gray-500 border border-gray-200";
 
   return (
     <span
@@ -231,8 +270,31 @@ function SectionError({ onRetry, label = "Retry" }) {
   );
 }
 
+/** Small stat pill used in the page header (same language as Savings). */
+function HeaderPill({ icon: Icon, label, value, tone = "default" }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl border border-[#bdc8f3]/40 bg-white p-3 shadow-sm">
+      <div
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-full",
+          tone === "good" ? "bg-emerald-100 text-emerald-600" : "bg-[#eef1fd] text-[#3b5bdb]"
+        )}
+      >
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0 truncate">
+        <span className="block text-[10px] font-medium leading-tight text-gray-500">
+          {label}
+        </span>
+        <span className="block truncate text-xs font-extrabold text-[#090f24]">
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function SocketScorePage() {
-  const navigate = useNavigate();
   const [finalizing, setFinalizing] = useState(false);
 
   const {
@@ -256,9 +318,14 @@ export function SocketScorePage() {
   const { data: explanationRes } = useAsync(getScoreExplanation, []);
 
   const summary = summaryRes?.data || summaryRes || {};
-  const breakdownPayload = breakdownRes?.data || breakdownRes || {};
-  const components = breakdownPayload.components || [];
   const explanation = explanationRes?.data || explanationRes || {};
+
+  // Normalise the component list once so downstream memo dependencies stay
+  // referentially stable between renders.
+  const components = useMemo(() => {
+    const list = breakdownRes?.data?.components ?? breakdownRes?.components;
+    return Array.isArray(list) ? list : [];
+  }, [breakdownRes]);
 
   const cumulativeScore = Number(
     summary.cumulativeScore ?? summary.socketScore ?? 0
@@ -301,6 +368,43 @@ export function SocketScorePage() {
     return [];
   }, [history, currentMonthly, cumulativeScore, summary.currentPeriod]);
 
+  // --- Derived, Duolingo-style primitives (all from backend records) ---
+  const band = bandFor(cumulativeScore);
+  const level = useMemo(() => nextLevelProgress(cumulativeScore), [cumulativeScore]);
+  const streak = useMemo(() => computeStreak(history), [history]);
+
+  const lessons = useMemo(
+    () =>
+      components.map((item) => {
+        const eligible =
+          item.eligible !== false &&
+          item.rawScore !== null &&
+          item.rawScore !== undefined;
+        const pct = eligible ? Number(item.rawScore) : 0;
+        const weight = Number(item.weight || 0);
+        const max = Number(item.applicableMaximum ?? weight);
+        const earned = eligible ? (pct / 100) * max : 0;
+
+        return {
+          ...item,
+          eligible,
+          pct,
+          max,
+          earned,
+          state: classifyComponent(eligible ? pct : null, eligible),
+          evidence: summarizeEvidence(item),
+          action: nextActionFor(item),
+          Icon: ICON_MAP[item.code] || ICON_MAP[item.name] || Award,
+        };
+      }),
+    [components]
+  );
+
+  const focusLessons = useMemo(
+    () => lessons.filter((l) => l.eligible && l.state.key !== "mastered"),
+    [lessons]
+  );
+
   async function handleFinalize() {
     const p = summary.lastFinalPeriod;
     // Finalize the month before the current one if available, else current.
@@ -323,117 +427,135 @@ export function SocketScorePage() {
     }
   }
 
-  return (
-    <div className="mx-auto min-h-screen max-w-md bg-[#F8FAFC] pb-10 font-sans text-[#090f24] sm:max-w-2xl">
-      <header className="flex items-center gap-3 px-4 pb-3 pt-4">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex size-9 items-center justify-center rounded-full bg-white shadow-sm"
-          aria-label="Back"
-        >
-          <ArrowLeft className="size-4" />
-        </button>
-        <div>
-          <h1 className="text-base font-bold tracking-tight">
-            Your SocketScore
-          </h1>
-          <p className="text-[11px] text-gray-500">
-            How your financial behaviour builds trust
-          </p>
-        </div>
-      </header>
+  const monthlyLabel =
+    currentMonthly === null || currentMonthly === undefined
+      ? "—"
+      : Number(currentMonthly).toFixed(1);
 
-      <div className="space-y-4 px-4">
-        {/* A. Main display */}
+  return (
+    <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
+      {/* BRANDED PAGE HEADER (same treatment as the Savings page) */}
+      <TopHeader
+        variant="page"
+        title="SocketScore"
+        subtitle="How your financial behaviour builds trust"
+        showBack
+      >
+        <div className="grid grid-cols-2 gap-2.5">
+          <HeaderPill
+            icon={TrendingUp}
+            label="This month"
+            value={loadingSummary ? "—" : `${monthlyLabel} pts`}
+          />
+          <HeaderPill
+            icon={Award}
+            label="Cumulative"
+            value={loadingSummary ? "—" : `${cumulativeScore.toFixed(1)} pts`}
+            tone="good"
+          />
+        </div>
+      </TopHeader>
+
+      <div className="space-y-4 px-4 pt-3 sm:px-6">
+        {/* A. HERO — score, level and progress to the next band */}
         {loadingSummary ? (
-          <Card className="p-5 text-center shadow-sm">
-            <div className="mx-auto h-4 w-24 animate-pulse rounded-full bg-gray-100" />
-            <div className="mx-auto mt-4 size-[150px] animate-pulse rounded-full bg-gray-100" />
-            <div className="mx-auto mt-4 h-3 w-16 animate-pulse rounded-full bg-gray-100" />
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-14 animate-pulse rounded-xl bg-gray-100"
-                />
-              ))}
+          <div className="relative overflow-hidden rounded-2xl p-5 text-white shadow-md">
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)" }}
+            />
+            <div className="relative space-y-3">
+              <div className="h-3 w-28 animate-pulse rounded-full bg-white/25" />
+              <div className="mx-auto h-[132px] w-[132px] animate-pulse rounded-full bg-white/25" />
+              <div className="h-2.5 w-full animate-pulse rounded-full bg-white/20" />
             </div>
-          </Card>
+          </div>
         ) : summaryError ? (
           <SectionError onRetry={refetchSummary} />
         ) : (
-          <Card className="p-5 text-center shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
-              Cumulative SocketScore
-            </p>
-            <p className="text-[11px] text-gray-500">
-              Your CGPA across all completed months
-            </p>
-
-            <div className="mt-3 flex justify-center">
-              <ProgressRing score={Math.round(animatedScore)} size={150} strokeWidth={14} />
+          <div
+            className="relative overflow-hidden rounded-2xl p-4 text-white shadow-md sm:p-5"
+            style={{ background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)" }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-[#dee3f9]">
+                Cumulative SocketScore
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">
+                <Trophy className="size-3" />
+                {band.label}
+              </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-[#F1F4FE] p-2">
-                <p className="text-[10px] font-bold uppercase text-gray-400">
-                  This month
-                </p>
-                <p className="text-sm font-extrabold text-text-primary">
-                  {currentMonthly === null || currentMonthly === undefined
-                    ? "—"
-                    : Number(currentMonthly).toFixed(1)}
-                </p>
+            <div className="mt-3 flex items-center gap-4">
+              <div className="shrink-0 rounded-full bg-white p-1.5 shadow-md">
+                <ProgressRing
+                  score={Math.round(animatedScore)}
+                  size={112}
+                  strokeWidth={11}
+                />
               </div>
-              <div className="rounded-xl bg-[#F1F4FE] p-2">
-                <p className="text-[10px] font-bold uppercase text-gray-400">
-                  Previous
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-white/70">
+                  {cumulativeScore.toFixed(1)} / 100 points
                 </p>
-                <p className="text-sm font-extrabold text-text-primary">
-                  {summary.previousMonthlyScore === null ||
-                  summary.previousMonthlyScore === undefined
-                    ? "—"
-                    : Number(summary.previousMonthlyScore).toFixed(1)}
-                </p>
-              </div>
-              <div className="rounded-xl bg-[#F1F4FE] p-2">
-                <p className="text-[10px] font-bold uppercase text-gray-400">
-                  Change
-                </p>
-                <p
-                  className={cn(
-                    "flex items-center justify-center gap-0.5 text-sm font-extrabold",
-                    Number(summary.changeFromPreviousMonth) >= 0
-                      ? "text-emerald-600"
-                      : "text-rose-600"
+
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {streak > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                      <Flame className="size-3" />
+                      {streak} month streak
+                    </span>
                   )}
-                >
-                  {Number(summary.changeFromPreviousMonth) >= 0 ? (
-                    <ArrowUpRight className="size-3.5" />
-                  ) : (
-                    <ArrowDownRight className="size-3.5" />
+                  {summary.eligibleMonths > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">
+                      {summary.eligibleMonths} scored month
+                      {summary.eligibleMonths === 1 ? "" : "s"}
+                    </span>
                   )}
-                  {Number(summary.changeFromPreviousMonth || 0).toFixed(1)}
-                </p>
+                </div>
+
+                {/* Progress toward the next band */}
+                {level.next ? (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-white/80">
+                      <span>{level.current.label}</span>
+                      <span>
+                        {level.pointsToNext} pts to {level.next.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-white/20">
+                      <div
+                        className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+                        style={{ width: `${level.percent}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-white/15 px-2.5 py-1.5 text-[10px] font-bold text-white">
+                    <Trophy className="size-3" />
+                    Top band reached — keep it there
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-500">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/15 pt-3 text-[10px] text-white/70">
               <span className="inline-flex items-center gap-1">
-                <CalendarDays className="size-3.5" />
+                <CalendarDays className="size-3" />
                 Current period: {periodLabel(summary.currentPeriod)}
               </span>
               {summary.lastCalculatedAt && (
                 <span>
-                  · Last calculated{" "}
+                  Last calculated{" "}
                   {new Date(summary.lastCalculatedAt).toLocaleDateString()}
                 </span>
               )}
             </div>
 
-            {summary.hasCompletedMonth ? null : (
-              <p className="mt-2 text-[11px] text-amber-700">
+            {!summary.hasCompletedMonth && (
+              <p className="mt-2 rounded-xl bg-amber-400/15 px-2.5 py-1.5 text-[10px] font-semibold text-amber-100">
                 No completed scoring month yet — your current month builds
                 provisionally and becomes final at month end.
               </p>
@@ -448,12 +570,228 @@ export function SocketScorePage() {
             >
               Finalize last month
             </Button>
+          </div>
+        )}
+
+        {/* B. MONTHLY PULSE — this month vs previous */}
+        {!loadingSummary && !summaryError && (
+          <div className="grid grid-cols-3 gap-2">
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                This month
+              </p>
+              <p className="mt-0.5 text-sm font-extrabold text-[#090f24]">
+                {monthlyLabel}
+              </p>
+            </Card>
+
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                Previous
+              </p>
+              <p className="mt-0.5 text-sm font-extrabold text-[#090f24]">
+                {summary.previousMonthlyScore === null ||
+                summary.previousMonthlyScore === undefined
+                  ? "—"
+                  : Number(summary.previousMonthlyScore).toFixed(1)}
+              </p>
+            </Card>
+
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                Change
+              </p>
+              <p
+                className={cn(
+                  "mt-0.5 flex items-center gap-0.5 text-sm font-extrabold",
+                  Number(summary.changeFromPreviousMonth) >= 0
+                    ? "text-emerald-600"
+                    : "text-rose-600"
+                )}
+              >
+                {Number(summary.changeFromPreviousMonth) >= 0 ? (
+                  <ArrowUpRight className="size-3.5" />
+                ) : (
+                  <ArrowDownRight className="size-3.5" />
+                )}
+                {Number(summary.changeFromPreviousMonth || 0).toFixed(1)}
+              </p>
+            </Card>
+          </div>
+        )}
+
+        {/* C. NEXT STEPS — the actionable goals (Duolingo-style daily goals) */}
+        {!loadingBreakdown && !breakdownError && focusLessons.length > 0 && (
+          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-[#090f24]">
+                <Target className="size-4 text-[#3b5bdb]" />
+                Your next steps
+              </h2>
+              <span className="rounded-full bg-[#eef1fd] px-2 py-0.5 text-[10px] font-bold text-[#3b5bdb]">
+                {focusLessons.length} to work on
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {focusLessons.map((lesson) => {
+                const Icon = lesson.Icon;
+                const route = COMPONENT_ROUTES[lesson.code] || ROUTES.DASHBOARD;
+
+                return (
+                  <Link
+                    key={lesson.code || lesson.name}
+                    to={route}
+                    className="flex items-center gap-3 rounded-xl border border-[#dee3f9] bg-[#f7f9ff] p-2.5 transition hover:bg-[#eef1fd] active:scale-[0.99]"
+                  >
+                    <div
+                      className={cn(
+                        "flex size-9 shrink-0 items-center justify-center rounded-xl",
+                        lesson.state.softBg,
+                        lesson.state.textClass
+                      )}
+                    >
+                      <Icon className="size-4" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-bold text-[#090f24]">
+                        {lesson.name}
+                      </p>
+                      <p className="truncate text-[10px] font-medium text-gray-500">
+                        {lesson.action || lesson.evidence}
+                      </p>
+                    </div>
+
+                    <ChevronRight className="size-4 shrink-0 text-[#c7cbe0]" />
+                  </Link>
+                );
+              })}
+            </div>
           </Card>
         )}
 
-        {/* B. Trend */}
-        <Card className="p-4 shadow-sm">
-          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+        {/* D. COMPONENTS — the six lessons */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-[#090f24]">Six components</h2>
+            <span className="text-[10px] font-semibold text-gray-400">
+              Total weight {explanation.weightsTotal || 100}
+            </span>
+          </div>
+
+          {loadingBreakdown ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-24 animate-pulse rounded-2xl bg-gray-100"
+                />
+              ))}
+            </div>
+          ) : breakdownError ? (
+            <SectionError onRetry={refetchBreakdown} />
+          ) : lessons.length === 0 ? (
+            <Card className="p-4 text-center text-xs text-gray-500">
+              No component breakdown available yet.
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {lessons.map((lesson) => {
+                const Icon = lesson.Icon;
+
+                return (
+                  <Card
+                    key={lesson.code || lesson.name}
+                    className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                          lesson.state.softBg,
+                          lesson.state.textClass
+                        )}
+                      >
+                        {lesson.eligible ? (
+                          <Icon className="size-5" />
+                        ) : (
+                          <Lock className="size-4" />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-bold text-[#090f24]">
+                            {lesson.name}
+                          </p>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                              lesson.state.borderClass,
+                              lesson.state.textClass
+                            )}
+                          >
+                            {lesson.state.label}
+                          </span>
+                        </div>
+
+                        {lesson.eligible ? (
+                          <>
+                            <p className="mt-1 text-xs font-semibold text-[#090f24]">
+                              {lesson.earned.toFixed(2)} / {lesson.max} points ·{" "}
+                              {lesson.pct.toFixed(1)}% performance
+                            </p>
+
+                            <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-[#eef1fd]">
+                              <div
+                                className="h-full rounded-full transition-[width] duration-700 ease-out"
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, lesson.pct))}%`,
+                                  backgroundColor: lesson.state.color,
+                                }}
+                              />
+                            </div>
+
+                            {lesson.evidence && (
+                              <p className="mt-2 inline-flex items-center gap-1 rounded-lg bg-[#f7f9ff] px-2 py-1 text-[10px] font-semibold text-[#3b5bdb]">
+                                <Info className="size-3 shrink-0" />
+                                {lesson.evidence}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="mt-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
+                              Not applicable this month — weight redistributed
+                              (not scored as 0).
+                            </p>
+                            {lesson.note && (
+                              <p className="mt-1 text-[10px] font-medium text-amber-600/80">
+                                {lesson.note}
+                              </p>
+                            )}
+                          </>
+                        )}
+
+                        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
+                          {HELP_MAP[lesson.code] ||
+                            HELP_MAP[lesson.name] ||
+                            lesson.description ||
+                            "Your score improves when you consistently fulfil this part of your cooperative behaviour."}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* E. TREND */}
+        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
+          <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-[#090f24]">
             <TrendingUp className="size-4 text-[#3B52C6]" />
             Cumulative trend
           </h2>
@@ -476,103 +814,19 @@ export function SocketScorePage() {
           </p>
         </Card>
 
-        {/* C. Breakdown */}
-        <div>
-          <h2 className="mb-2 text-sm font-bold">Six components</h2>
-
-          {loadingBreakdown ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-24 animate-pulse rounded-2xl bg-gray-100"
-                />
-              ))}
-            </div>
-          ) : breakdownError ? (
-            <SectionError onRetry={refetchBreakdown} />
-          ) : components.length === 0 ? (
-            <Card className="p-4 text-center text-xs text-gray-500">
-              No component breakdown available yet.
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {components.map((item) => {
-                const Icon =
-                  ICON_MAP[item.code] || ICON_MAP[item.name] || Award;
-                const eligible =
-                  item.eligible !== false &&
-                  item.rawScore !== null &&
-                  item.rawScore !== undefined;
-                const pct = eligible ? Number(item.rawScore) : 0;
-                const weight = Number(item.weight || 0);
-                const earned = eligible
-                  ? Number(
-                      item.contribution ?? (pct / 100) * weight
-                    )
-                  : 0;
-                const max = Number(item.applicableMaximum ?? weight);
-
-                return (
-                  <Card key={item.code || item.name} className="p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F1F4FE] text-[#3B52C6]">
-                        <Icon className="size-5" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-bold text-text-primary">
-                            {item.name}
-                          </p>
-                          <span className="shrink-0 rounded-full bg-[#F1F4FE] px-2 py-0.5 text-[10px] font-bold text-[#3B52C6]">
-                            Weight {weight}
-                          </span>
-                        </div>
-
-                        {eligible ? (
-                          <>
-                            <p className="mt-0.5 text-xs font-semibold text-text-primary">
-                              {earned.toFixed(2)} / {max} points ·{" "}
-                              {pct.toFixed(1)}% performance
-                            </p>
-                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                              <div
-                                className="h-full rounded-full bg-[#3B52C6] animate-[growBar_0.7s_ease-out]"
-                                style={{
-                                  width: `${Math.min(100, Math.max(0, pct))}%`,
-                                }}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <p className="mt-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
-                            Not applicable this month — weight redistributed
-                            (not scored as 0).
-                          </p>
-                        )}
-
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500">
-                          {HELP_MAP[item.code] ||
-                            HELP_MAP[item.name] ||
-                            item.description ||
-                            "Your score improves when you consistently fulfil this part of your cooperative behaviour."}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Monthly history */}
-        <Card className="p-4 shadow-sm">
-          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold">
-            <CalendarDays className="size-4 text-[#3B52C6]" />
-            Monthly history
-          </h2>
+        {/* F. MONTHLY HISTORY */}
+        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-[#090f24]">
+              <CalendarDays className="size-4 text-[#3B52C6]" />
+              Monthly history
+            </h2>
+            {history.length > 0 && (
+              <span className="text-[10px] font-semibold text-gray-400">
+                {history.length} month{history.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
 
           {loadingHistory ? (
             <div className="h-16 animate-pulse rounded-xl bg-gray-100" />
@@ -584,56 +838,47 @@ export function SocketScorePage() {
               here.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-100">
-              <table className="w-full text-left text-[12px]">
-                <thead>
-                  <tr className="bg-[#F1F4FE] text-[10px] uppercase text-gray-500">
-                    <th className="px-3 py-2">Month</th>
-                    <th className="px-3 py-2">Monthly</th>
-                    <th className="px-3 py-2">Cumulative</th>
-                    <th className="px-3 py-2">Δ</th>
-                    <th className="px-3 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...history].reverse().map((h) => (
-                    <tr
-                      key={h._id || `${h.year}-${h.month}`}
-                      className="border-t border-gray-100"
-                    >
-                      <td className="px-3 py-2 font-semibold">
+            <div className="max-h-[260px] space-y-1.5 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200">
+              {[...history].reverse().map((h) => {
+                const delta = Number(h.delta || 0);
+                return (
+                  <div
+                    key={h._id || `${h.year}-${h.month}`}
+                    className="flex items-center gap-3 rounded-xl border border-[#eef1fd] bg-[#f7f9ff] px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12px] font-bold text-[#090f24]">
                         {periodLabel({ year: h.year, month: h.month })}
-                      </td>
-                      <td className="px-3 py-2">
-                        {Number(h.monthlyScore).toFixed(1)}
-                      </td>
-                      <td className="px-3 py-2 font-semibold">
-                        {Number(h.cumulativeScore).toFixed(1)}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-3 py-2 font-semibold",
-                          Number(h.delta) >= 0
-                            ? "text-emerald-600"
-                            : "text-rose-600"
-                        )}
-                      >
-                        {Number(h.delta) >= 0 ? "+" : ""}
-                        {Number(h.delta || 0).toFixed(1)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <StatusBadge status={h.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </p>
+                      <p className="text-[10px] font-medium text-gray-500">
+                        Cumulative {Number(h.cumulativeScore || 0).toFixed(1)}
+                      </p>
+                    </div>
+
+                    <span
+                      className={cn(
+                        "shrink-0 text-[12px] font-extrabold",
+                        delta >= 0 ? "text-emerald-600" : "text-rose-600"
+                      )}
+                    >
+                      {delta >= 0 ? "+" : ""}
+                      {delta.toFixed(1)}
+                    </span>
+
+                    <span className="w-12 shrink-0 text-right text-[13px] font-extrabold text-[#090f24]">
+                      {Number(h.monthlyScore || 0).toFixed(1)}
+                    </span>
+
+                    <StatusBadge status={h.status} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
 
-        {/* D. How it works */}
-        <Card className="border-blue-100 bg-blue-50/50 p-4 shadow-sm">
+        {/* G. HOW IT WORKS */}
+        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-[#eef1fd]/60 p-4 shadow-sm">
           <h2 className="flex items-center gap-1.5 text-sm font-bold text-[#1d2d6d]">
             <CircleHelp className="size-4" />
             How Your SocketScore Works
@@ -672,9 +917,9 @@ export function SocketScorePage() {
           )}
         </Card>
 
-        {/* E. Improve */}
-        <Card className="p-4 shadow-sm">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold">
+        {/* H. TIPS */}
+        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-[#090f24]">
             <Target className="size-4 text-[#3B52C6]" />
             How to improve your SocketScore
           </h2>

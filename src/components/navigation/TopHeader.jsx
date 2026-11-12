@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, UserCheck, Handshake } from "lucide-react";
+import { Bell, UserCheck, Handshake, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/utils/cn";
 import { ROUTES } from "@/constants/routes";
@@ -13,14 +13,30 @@ function getGreeting() {
   return "Good Evening";
 }
 
+/**
+ * The app's page header.
+ *
+ *   variant="brand" → the dashboard greeting hero (avatar + notification bell)
+ *   variant="page"  → a branded page header (back button + title + optional
+ *                     pill row) — the same treatment the Savings page uses
+ *   variant="plain" → a light header bar
+ *
+ * `title` / `subtitle` / `showBack` are honoured by every variant, so a page
+ * never has to hand-roll its own header.
+ */
 export function TopHeader({
   variant = "plain",
+  title,
+  subtitle,
+  showBack = false,
   user,
   unreadCount = 0,
   className,
+  children,
 }) {
   const navigate = useNavigate();
   const isBrand = variant === "brand";
+  const isPage = variant === "page";
 
   const firstName = user?.fullName?.split(" ")[0] ?? "User";
   const [avatarError, setAvatarError] = useState(false);
@@ -49,10 +65,67 @@ export function TopHeader({
   navigate(ROUTES.NOTIFICATIONS);
 }
 
+  if (isPage) {
+    return (
+      <header
+        className={cn(
+          "relative px-5 pt-4 pb-7 rounded-b-[24px] shadow-md text-white",
+          className
+        )}
+        style={{
+          background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
+        }}
+      >
+        <div className="flex items-center justify-between gap-3 mb-4">
+          {showBack ? (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="p-1.5 rounded-full hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Back"
+            >
+              <ArrowLeft className="size-5 text-white" />
+            </button>
+          ) : (
+            <div className="w-5 shrink-0" />
+          )}
+
+          <div className="min-w-0 text-center">
+            <h1 className="text-base font-bold tracking-tight text-white truncate">
+              {title || "Dashboard"}
+            </h1>
+            {subtitle && (
+              <p className="text-[10px] font-medium text-white/70 truncate">
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          <div className="w-5 shrink-0" />
+        </div>
+
+        {children}
+      </header>
+    );
+  }
+
   if (!isBrand) {
     return (
       <header className={cn("flex items-center justify-between px-5 py-3 bg-[#F8FAFC] text-[#090f24] border-b border-[#dee3f9]/50", className)}>
-        <h1 className="text-base font-bold">Dashboard</h1>
+        {showBack ? (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="-ml-1 p-1.5 rounded-full hover:bg-black/5 transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft className="size-4" />
+          </button>
+        ) : null}
+
+        <h1 className="text-base font-bold">{title || "Dashboard"}</h1>
+
+        {showBack ? <div className="w-6" /> : null}
       </header>
     );
   }

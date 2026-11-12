@@ -48,6 +48,8 @@ export const ROUTES = {
   TRANSACTION_DETAIL: "/dashboard/transactions/:id",
   NOTIFICATIONS: "/dashboard/notifications",
   PROFILE: "/dashboard/profile",
+  REFERRALS: "/dashboard/referrals",
+  COMPLAINTS: "/dashboard/complaints",
   GUARANTOR_VERIFY: "/guarantor/verify/:token",
 
   // Super Admin
