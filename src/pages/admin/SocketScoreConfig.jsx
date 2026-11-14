@@ -1,31 +1,32 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { TopHeader } from "@/components/navigation/TopHeader";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Award, RefreshCw, Save } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { apiClient } from "@/services/apiClient";
-import { cn } from "@/utils/cn";
+import { formatDate } from "@/utils/format";
+import { AdminPageShell, AdminHero } from "@/components/admin";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { EmptyState } from "@/components/feedback/EmptyState";
 
-const LABEL = {
-  savings_consistency: "Savings Consistency",
-  savings_growth: "Savings Growth",
-  loan_repayment: "Loan Repayment",
-  withdrawal_behaviour: "Withdrawal Behaviour",
-  profile_completion: "Profile Completion",
-  community_trust: "Community Trust",
-};
+function clampWeight(v) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
 
 export function SocketScoreConfig() {
   const getConfig = () => apiClient.get("/admin/score/config");
   const getHistory = () => apiClient.get("/admin/score/config/history");
 
-  const { data: configRes, isLoading, refetch } = useAsync(getConfig, []);
-  const { data: historyRes } = useAsync(getHistory, []);
+  const configQuery = useAsync(getConfig, []);
+  const historyQuery = useAsync(getHistory, []);
 
-  const config = configRes?.data || configRes;
-  const history = historyRes?.data || historyRes || [];
+  const config = configQuery.data?.data || configQuery.data || null;
+  const history = Array.isArray(historyQuery.data?.data) ? historyQuery.data.data : Array.isArray(historyQuery.data) ? historyQuery.data : [];
 
   const [components, setComponents] = useState([]);
   const [changeNotes, setChangeNotes] = useState("");
@@ -35,159 +36,207 @@ export function SocketScoreConfig() {
   const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
-    if (config?.components) {
+    if (Array.isArray(config?.components)) {
       setComponents(
         config.components.map((c) => ({
           code: c.code,
-          name: c.name || LABEL[c.code] || c.code,
-          weight: c.weight,
-          calculationRule: c.calculationRule,
-          formulaStatus: c.formulaStatus,
+          name: c.name || c.code,
+          weight: Number(c.weight ?? 0),
           description: c.description || "",
+          calculationRule: c.calculationRule || "",
+          formulaStatus: c.formulaStatus || "",
           isActive: c.isActive !== false,
         }))
       );
     }
   }, [config]);
 
-  const total = components.reduce((sum, c) => sum + Number(c.weight || 0), 0);
+  const total = useMemo(() => components.reduce((sum, c) => sum + Number(c.weight || 0), 0), [components]);
   const totalOk = Math.abs(total - 100) < 0.001;
 
-  function setWeight(code, value) {
+  const updateWeight = (code, value) => {
     setComponents((prev) => prev.map((c) => (c.code === code ? { ...c, weight: value } : c)));
-  }
+  };
 
-  async function handleSave() {
+  const saveConfig = async () => {
+    if (!Array.isArray(components) || components.length === 0) {
+      toast.error("No scoring components loaded.");
+      return;
+    }
     if (!totalOk) {
-      toast.error("Total weight must equal exactly 100 before saving.");
+      toast.error("Component weights must total exactly 100.");
       return;
     }
     setSaving(true);
     try {
       await apiClient.put("/admin/score/config", {
-        components: components.map((c) => ({ ...c, weight: Number(c.weight) })),
-        changeNotes: changeNotes || "Admin weight update",
+        components: components.map((c) => ({ ...c, weight: clampWeight(c.weight) })),
+        changeNotes: changeNotes.trim() || "Admin scoring configuration update",
       });
-      toast.success("Scoring configuration saved (new version).");
+      toast.success("Scoring configuration saved.");
       setChangeNotes("");
-      refetch();
-    } catch (e) {
-      toast.error(e?.data?.message || e?.message || "Failed to save configuration.");
+      await Promise.all([configQuery.refetch(), historyQuery.refetch()]);
+    } catch (err) {
+      toast.error(err?.data?.message || err?.message || "Failed to save scoring configuration.");
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  async function handleRecalculate() {
-    if (!memberId.trim()) {
+  const recalculate = async () => {
+    const id = memberId.trim();
+    if (!id) {
       toast.error("Enter a member ID.");
       return;
     }
-    const [year, month] = monthInput.split("-").map(Number);
+    const [yearStr, monthStr] = monthInput ? monthInput.split("-") : [];
+    const year = yearStr ? Number(yearStr) : undefined;
+    const month = monthStr ? Number(monthStr) : undefined;
     setRecalculating(true);
     try {
-      await apiClient.post(`/admin/score/members/${memberId.trim()}/recalculate`, {
-        year: year || undefined,
-        month: month || undefined,
+      await apiClient.post(`/admin/score/members/${id}/recalculate`, {
+        ...(year ? { year } : {}),
+        ...(month ? { month } : {}),
         force: true,
         reason: "admin recalculation",
       });
       toast.success("Member score recalculated.");
-    } catch (e) {
-      toast.error(e?.data?.message || e?.message || "Recalculation failed.");
+    } catch (err) {
+      toast.error(err?.data?.message || err?.message || "Failed to recalculate member score.");
     } finally {
       setRecalculating(false);
     }
-  }
+  };
 
-  if (isLoading) return <div className="p-6 text-center">Loading scoring configuration...</div>;
+  const loading = configQuery.isLoading || historyQuery.isLoading;
+  const loadError = configQuery.error || historyQuery.error;
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-3xl p-5 pb-24">
-      <TopHeader variant="brand" />
-      <h1 className="text-xl font-bold text-[#090f24]">SocketScore Configuration</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Active version: <strong>v{config?.version}</strong>. Changes create a new version — previous monthly
-        scores keep their original configuration version and are only rewritten by an authorised recalculation.
-      </p>
+    <AdminPageShell>
+      <AdminHero
+        icon={Award}
+        eyebrow="SocketScore Governance"
+        title="SocketScore Configuration"
+        description="Manage versioned scoring weights and trigger audited recalculations using live backend score services."
+        actions={
+          <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => { configQuery.refetch(); historyQuery.refetch(); }} className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20">
+            Refresh
+          </Button>
+        }
+      />
 
-      <Card className="mt-4 p-4">
-        <h2 className="text-sm font-bold">Six components (weights must total 100)</h2>
-        <div className="mt-3 space-y-3">
-          {components.map((c) => (
-            <div key={c.code} className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-center">
-              <div>
-                <p className="text-sm font-semibold">{c.name}</p>
-                <p className="text-[11px] text-gray-500">{c.description}</p>
-                <p className="text-[10px] text-gray-400">Rule: {c.calculationRule} • {c.formulaStatus}</p>
-              </div>
-              <Input
-                label="Weight"
-                type="number"
-                step="0.5"
-                min="0"
-                max="100"
-                value={c.weight}
-                onChange={(e) => setWeight(c.code, e.target.value)}
-              />
-              <label className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={c.isActive}
-                  onChange={(e) =>
-                    setComponents((prev) => prev.map((x) => (x.code === c.code ? { ...x, isActive: e.target.checked } : x)))
-                  }
-                />
-                Active
-              </label>
-            </div>
-          ))}
-        </div>
-        <p className={cn("mt-3 text-sm font-bold", totalOk ? "text-emerald-600" : "text-rose-600")}>
-          Total: {Number(total).toFixed(1)} / 100 {totalOk ? "✓ ready to save" : "(must equal 100)"}
-        </p>
-        <Input
-          label="Change notes"
-          placeholder="e.g. Monthly review — growth weight up"
-          value={changeNotes}
-          onChange={(e) => setChangeNotes(e.target.value)}
+      {loading ? (
+        <LoadingState rows={5} />
+      ) : loadError ? (
+        <ErrorState
+          title="Could not load SocketScore configuration"
+          description={loadError?.data?.message || loadError?.message || "Scoring configuration is unavailable right now."}
+          onRetry={() => { configQuery.refetch(); historyQuery.refetch(); }}
         />
-        <Button fullWidth disabled={!totalOk || saving || components.length !== 6} isLoading={saving} onClick={handleSave} className="mt-3 rounded-full">
-          Save new version
-        </Button>
-      </Card>
-
-      <Card className="mt-4 p-4">
-        <h2 className="text-sm font-bold">Member score recalculation (audited)</h2>
-        <p className="mt-1 text-[11px] text-gray-500">
-          Re-runs the calculation for one member/month against verified data and recomputes their cumulative chain.
-        </p>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input label="Member ID" value={memberId} onChange={(e) => setMemberId(e.target.value)} placeholder="Member ObjectId" />
-          <Input label="Month (YYYY-MM)" type="month" value={monthInput} onChange={(e) => setMonthInput(e.target.value)} />
-        </div>
-        <Button fullWidth disabled={recalculating} isLoading={recalculating} onClick={handleRecalculate} className="mt-3 rounded-full">
-          Recalculate member score
-        </Button>
-      </Card>
-
-      <Card className="mt-4 p-4">
-        <h2 className="text-sm font-bold">Configuration history</h2>
-        {history.length === 0 ? (
-          <p className="mt-2 text-xs text-gray-500">No previous versions yet.</p>
-        ) : (
-          <div className="mt-2 space-y-2">
-            {history.map((h) => (
-              <div key={h._id || h.version} className="rounded-xl bg-[#F8FAFC] p-3 text-xs">
-                <p className="font-bold">v{h.version} {h.isActive ? "• active" : ""}</p>
-                <p className="text-gray-500">{h.changeNotes} · {new Date(h.createdAt).toLocaleString()}</p>
-                <p className="text-gray-500">{(h.components || []).map((c) => `${c.code}:${c.weight}`).join(" | ")}</p>
+      ) : (
+        <div className="space-y-4">
+          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-sm font-extrabold text-[#090f24]">Active configuration</h2>
+                <p className="mt-1 text-xs text-text-secondary">
+                  Version <span className="font-bold text-[#090f24]">v{config?.version ?? "—"}</span>. Saving creates a new version; prior monthly records retain their original configuration unless recalculated.
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
+              <div className={`rounded-xl px-3 py-2 text-sm font-extrabold ${totalOk ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                Total: {total.toFixed(1)} / 100
+              </div>
+            </div>
+
+            {components.length === 0 ? (
+              <EmptyState title="No scoring components found" description="The backend did not return configurable scoring components." className="py-8" />
+            ) : (
+              <div className="mt-4 space-y-3">
+                {components.map((c) => (
+                  <div key={c.code} className="grid grid-cols-1 gap-3 rounded-xl border border-[#dee3f9] bg-[#f8faff] p-3 sm:grid-cols-12 sm:items-center">
+                    <div className="sm:col-span-6">
+                      <p className="text-sm font-bold text-[#090f24]">{c.name}</p>
+                      {c.description ? <p className="mt-0.5 text-xs text-text-secondary">{c.description}</p> : null}
+                      {(c.calculationRule || c.formulaStatus) ? (
+                        <p className="mt-1 text-[11px] font-medium text-text-muted">
+                          {[c.calculationRule, c.formulaStatus].filter(Boolean).join(" • ")}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="sm:col-span-3">
+                      <Input
+                        label="Weight"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={c.weight}
+                        onChange={(e) => updateWeight(c.code, e.target.value)}
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 rounded-xl border border-[#bdc8f3]/30 bg-white px-3 py-2 text-sm font-medium text-[#090f24] sm:col-span-3">
+                      <input
+                        type="checkbox"
+                        checked={!!c.isActive}
+                        onChange={(e) => setComponents((prev) => prev.map((x) => x.code === c.code ? { ...x, isActive: e.target.checked } : x))}
+                      />
+                      Active
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <Input label="Change notes" placeholder="Describe why this configuration is changing" value={changeNotes} onChange={(e) => setChangeNotes(e.target.value)} />
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button variant="primary" icon={Save} onClick={saveConfig} isLoading={saving} disabled={!totalOk || components.length === 0} className="rounded-xl sm:w-auto">
+                  Save new version
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-sm font-extrabold text-[#090f24]">Member score recalculation</h2>
+            <p className="mt-1 text-xs text-text-secondary">Runs an audited recalculation for a specific member and optional month against verified backend data.</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input label="Member ID" placeholder="User/Object ID" value={memberId} onChange={(e) => setMemberId(e.target.value)} />
+              <Input label="Month (optional)" type="month" value={monthInput} onChange={(e) => setMonthInput(e.target.value)} />
+            </div>
+            <div className="mt-3 flex sm:justify-end">
+              <Button onClick={recalculate} isLoading={recalculating} disabled={!memberId.trim()} className="rounded-xl sm:w-auto">
+                Recalculate member score
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-sm font-extrabold text-[#090f24]">Configuration history</h2>
+            {history.length === 0 ? (
+              <EmptyState title="No configuration history" description="No previous scoring configuration versions were returned." className="py-8" />
+            ) : (
+              <div className="mt-3 space-y-2.5">
+                {history.map((h) => (
+                  <div key={h._id || h.version} className="rounded-xl border border-[#dee3f9] bg-[#f8faff] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-extrabold text-[#090f24]">Version v{h.version}{h.isActive ? " • Active" : ""}</p>
+                      <p className="text-xs text-text-secondary">{formatDate(h.createdAt, "MMM dd, yyyy h:mm a") || "—"}</p>
+                    </div>
+                    {h.changeNotes ? <p className="mt-1 text-xs text-text-secondary">{h.changeNotes}</p> : null}
+                    {Array.isArray(h.components) && h.components.length ? (
+                      <p className="mt-2 text-[11px] font-medium text-text-muted break-words">
+                        {h.components.map((c) => `${c.code || c.name}: ${c.weight}`).join("  •  ")}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </AdminPageShell>
   );
 }
 

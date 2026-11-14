@@ -1,3 +1,4 @@
-export { default as AdminPageHeader } from "./AdminPageHeader";
-export { default as AdminStatCard } from "./AdminStatCard";
-export { default as AdminStatusBadge } from "./AdminStatusBadge";
+export { AdminPageShell, AdminHero } from "./AdminPageShell";
+export { AdminPageHeader } from "./AdminPageHeader";
+export { AdminStatCard } from "./AdminStatCard";
+export { AdminStatusBadge } from "./AdminStatusBadge";

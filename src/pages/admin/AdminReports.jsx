@@ -1,343 +1,204 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { TopHeader } from "@/components/navigation/TopHeader";
-import { FileSpreadsheet, FileText, Calendar, RefreshCw, TrendingUp, Users, Wallet, Building2, Sparkles } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { LoadingState } from "@/components/feedback/LoadingState";
-import { EmptyState } from "@/components/feedback/EmptyState";
+import { FileSpreadsheet, FileText, Calendar, RefreshCw, TrendingUp, Users, Wallet, Building2, BarChart3 } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { getAdminReports, downloadReportPdf, downloadReportExcel } from "@/services/adminService";
 import { formatNaira, formatDate } from "@/utils/format";
+import { AdminPageShell, AdminHero, AdminStatCard, AdminStatusBadge } from "@/components/admin";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/feedback/LoadingState";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+
+const MONTHS = [
+  { value: 1, label: "January" }, { value: 2, label: "February" }, { value: 3, label: "March" },
+  { value: 4, label: "April" }, { value: 5, label: "May" }, { value: 6, label: "June" },
+  { value: 7, label: "July" }, { value: 8, label: "August" }, { value: 9, label: "September" },
+  { value: 10, label: "October" }, { value: 11, label: "November" }, { value: 12, label: "December" },
+];
+
+function triggerFileDownload(blobData, filename) {
+  if (!(blobData instanceof Blob)) throw new Error("Export file is not available.");
+  const url = window.URL.createObjectURL(blobData);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
 
 export function AdminReports() {
+  const now = new Date();
   const [reportType, setReportType] = useState("overview");
-
-  // Dynamic Date Selectors State
-  const currentDate = new Date();
-  const [month, setMonth] = useState(currentDate.getMonth() + 1);
-  const [year, setYear] = useState(currentDate.getFullYear());
-
-  // Download Loading States
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [isExcelDownloading, setIsExcelDownloading] = useState(false);
 
-  // Data Fetching
-  const { data, isLoading, refetch } = useAsync(
+  const { data, isLoading, error, refetch } = useAsync(
     () => getAdminReports({ type: reportType, month, year }),
     [reportType, month, year]
   );
 
-  // Payload Normalization
-  const reportData = data?.data?.reports || data?.reports || data?.data || [];
   const stats = data?.stats || data?.data?.stats || {};
-  const totalAmount = data?.totalAmount ?? data?.total ?? stats.totalAmount ?? 0;
+  const reportData = Array.isArray(data?.reports) ? data.reports : Array.isArray(data?.data?.reports) ? data.data.reports : Array.isArray(data?.data) ? data.data : [];
+  const totalAmount = data?.totalAmount ?? stats.totalAmount ?? 0;
   const isOverview = reportType === "overview";
+  const years = useMemo(() => Array.from({ length: 6 }, (_, i) => now.getFullYear() - i), [now]);
 
-  // Month Options Array
-  const monthOptions = [
-    { value: 1, label: "January" },
-    { value: 2, label: "February" },
-    { value: 3, label: "March" },
-    { value: 4, label: "April" },
-    { value: 5, label: "May" },
-    { value: 6, label: "June" },
-    { value: 7, label: "July" },
-    { value: 8, label: "August" },
-    { value: 9, label: "September" },
-    { value: 10, label: "October" },
-    { value: 11, label: "November" },
-    { value: 12, label: "December" },
-  ];
-
-  // Year Options Array (Last 5 Years)
-  const currentYear = currentDate.getFullYear();
-  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-  // Helper function to trigger browser file download from Blob
-  const triggerFileDownload = (blobData, filename) => {
-    const blob = new Blob([blobData], {
-      type: blobData.type || "application/octet-stream",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  };
-
-  async function handleDownloadPdf() {
-    setIsPdfDownloading(true);
+  async function handleDownload(kind) {
+    const isPdf = kind === "pdf";
+    const setLoading = isPdf ? setIsPdfDownloading : setIsExcelDownloading;
+    setLoading(true);
     try {
-      const response = await downloadReportPdf({ type: reportType, month, year });
-      const fileBlob = response?.data || response;
-      if (!(fileBlob instanceof Blob)) throw new Error("PDF export is not available right now.");
-      const monthLabel = monthOptions.find((m) => m.value === Number(month))?.label;
-      const fileName = `${reportType}-report-${monthLabel}-${year}.pdf`;
-      triggerFileDownload(fileBlob, fileName);
-      toast.success("PDF report downloaded successfully");
-    } catch (error) {
-      const msg = error?.data?.message || error?.response?.data?.message || error?.message;
-      toast.error(msg || "PDF export is not available yet");
+      const response = isPdf
+        ? await downloadReportPdf({ type: reportType, month, year })
+        : await downloadReportExcel({ type: reportType, month, year });
+      const fileBlob = response?.data instanceof Blob ? response.data : response instanceof Blob ? response : null;
+      if (!fileBlob) throw new Error(isPdf ? "PDF export is not available right now." : "Excel export is not available right now.");
+      const monthLabel = MONTHS.find((m) => m.value === Number(month))?.label || month;
+      const ext = isPdf ? "pdf" : "xlsx";
+      triggerFileDownload(fileBlob, `${reportType}-report-${monthLabel}-${year}.${ext}`);
+      toast.success(`${isPdf ? "PDF" : "Excel"} report downloaded.`);
+    } catch (err) {
+      toast.error(err?.data?.message || err?.message || `${isPdf ? "PDF" : "Excel"} export is not available yet.`);
     } finally {
-      setIsPdfDownloading(false);
-    }
-  }
-
-  async function handleDownloadExcel() {
-    setIsExcelDownloading(true);
-    try {
-      const response = await downloadReportExcel({ type: reportType, month, year });
-      const fileBlob = response?.data || response;
-      if (!(fileBlob instanceof Blob)) throw new Error("Excel export is not available right now.");
-      const monthLabel = monthOptions.find((m) => m.value === Number(month))?.label;
-      const fileName = `${reportType}-report-${monthLabel}-${year}.xlsx`;
-      triggerFileDownload(fileBlob, fileName);
-      toast.success("Excel report downloaded successfully");
-    } catch (error) {
-      const msg = error?.data?.message || error?.response?.data?.message || error?.message;
-      toast.error(msg || "Excel export is not available yet");
-    } finally {
-      setIsExcelDownloading(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
-      {/* ── TOP HEADER ───────────────────────────────────── */}
-      <TopHeader />
-
-      <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
-
-        {/* Reports Hero Banner */}
-        <div
-          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{ background: "linear-gradient(135deg, #5B76E1 0%, #131e49 50%, #090f24 100%)" }}
-        >
-          <div>
-            <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
-              <Sparkles className="size-4 text-emerald-400" />
-              <span className="text-xs font-semibold">Audit & Compliance</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
-              Financial Statements
-            </h1>
-            <p className="mt-0.5 text-xs text-[#dee3f9]/80">
-              Generate, audit, and export organization-wide financial logs and ledgers.
-            </p>
-          </div>
-
-          {/* Export Actions Toolbar */}
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={FileText}
-              disabled={isPdfDownloading}
-              onClick={handleDownloadPdf}
-              className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs font-bold"
-            >
+    <AdminPageShell>
+      <AdminHero
+        icon={BarChart3}
+        eyebrow="Audit & Compliance"
+        title="Reports & Statements"
+        description="View cooperative report snapshots and ledger entries from live backend data. Export availability depends on backend support."
+        actions={
+          <>
+            <Button variant="outline" size="sm" icon={FileText} disabled={isPdfDownloading} onClick={() => handleDownload("pdf")} className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20">
               {isPdfDownloading ? "Exporting..." : "Export PDF"}
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={FileSpreadsheet}
-              disabled={isExcelDownloading}
-              onClick={handleDownloadExcel}
-              className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold border-none"
-            >
-              {isExcelDownloading ? "Exporting..." : "Export Excel (.xlsx)"}
+            <Button variant="outline" size="sm" icon={FileSpreadsheet} disabled={isExcelDownloading} onClick={() => handleDownload("excel")} className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20">
+              {isExcelDownloading ? "Exporting..." : "Export Excel"}
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* ── FILTERS & SELECTORS ─────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-3.5 rounded-2xl border border-[#bdc8f3]/40 shadow-xs">
-          {/* Report Type Selector */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {["overview", "savings", "loans", "revenue"].map((type) => (
+      <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "overview", label: "Overview" },
+              { key: "savings", label: "Savings" },
+              { key: "loans", label: "Loans" },
+              { key: "revenue", label: "Revenue" },
+            ].map((t) => (
               <button
-                key={type}
-                onClick={() => setReportType(type)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap capitalize ${reportType === type ? "bg-[#131e49] text-white shadow-xs" : "bg-[#dee3f9]/30 text-gray-600 hover:bg-[#dee3f9]/60"}`}
+                key={t.key}
+                type="button"
+                onClick={() => setReportType(t.key)}
+                className={`rounded-xl px-3.5 py-2 text-xs font-extrabold transition-colors ${reportType === t.key ? "bg-[#131e49] text-white" : "bg-[#dee3f9]/35 text-[#32417B] hover:bg-[#dee3f9]/60"}`}
               >
-                {type}
+                {t.label}
               </button>
             ))}
           </div>
 
-          {/* Month/Year Filter Dropdowns */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-[#dee3f9]/30 border border-[#bdc8f3]/40 rounded-xl px-2.5 py-1.5">
-              <Calendar className="size-3.5 text-gray-500" />
-              <select
-                className="bg-transparent text-xs font-bold text-[#090f24] focus:outline-none"
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-              >
-                {monthOptions.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-[#bdc8f3]/40 bg-[#f8faff] px-2.5 py-1.5">
+              <Calendar className="size-4 text-text-secondary" />
+              <select className="bg-transparent text-xs font-bold text-[#090f24] focus:outline-none" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+                {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+              <select className="bg-transparent text-xs font-bold text-[#090f24] focus:outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-
-            <select
-              className="bg-[#dee3f9]/30 border border-[#bdc8f3]/40 rounded-xl px-3 py-1.5 text-xs font-bold text-[#090f24] focus:outline-none"
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              variant="ghost"
-              size="xs"
-              icon={RefreshCw}
-              onClick={refetch}
-              className="rounded-xl hover:bg-[#dee3f9]/40 p-2"
-              title="Refresh Report Data"
-            />
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={refetch} className="rounded-xl">Refresh</Button>
           </div>
         </div>
+        {!isOverview ? (
+          <p className="mt-2 text-[11px] font-medium text-amber-700">Note: date filters are sent to the API, but period-specific filtering depends on backend report support.</p>
+        ) : null}
+      </Card>
 
-        {/* ── MOBILE-OPTIMIZED SUMMARY STAT CARDS GRID ─────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <MobileReportMetricCard
-            label={isOverview ? "Total Portfolio Savings" : `Total ${reportType.toUpperCase()} Volume`}
-            value={formatNaira(isOverview ? stats.totalSavings || totalAmount : totalAmount)}
-            icon={Wallet}
-          />
-          <MobileReportMetricCard
-            label={isOverview ? "Active Members" : "Total Log Entries"}
-            value={
-              isOverview
-                ? stats.totalMembers?.toLocaleString() || "0"
-                : reportData.length?.toLocaleString() || "0"
-            }
-            icon={Users}
-          />
-          <MobileReportMetricCard
-            label="Total Loans Issued"
-            value={formatNaira(stats.totalLoansDisbursed || 0)}
-            icon={Building2}
-          />
-          <MobileReportMetricCard
-            label="Cooperative Gross Interest"
-            value={formatNaira(stats.totalRevenue || 0)}
-            icon={TrendingUp}
-          />
-        </div>
-
-        {/* ── STATEMENT LEDGER TABLE ─────────────────────── */}
-        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-0 shadow-xs overflow-hidden">
-          <div className="p-3.5 bg-[#dee3f9]/30 border-b border-[#dee3f9] flex items-center justify-between">
-            <h3 className="text-xs font-extrabold text-[#090f24] uppercase tracking-wider flex items-center gap-2">
-              <FileText className="size-4 text-emerald-600" />
-              {reportType} Statement Ledger ({monthOptions.find((m) => m.value === Number(month))?.label} {year})
-            </h3>
-            <span className="text-[10px] font-bold text-gray-500 bg-white px-2.5 py-0.5 rounded-full border border-[#bdc8f3]/40">
-              {reportData.length} records found
-            </span>
+      {isLoading ? (
+        <LoadingState rows={5} />
+      ) : error ? (
+        <ErrorState
+          title="Could not load reports"
+          description={error?.data?.message || error?.message || "Report data is unavailable right now."}
+          onRetry={refetch}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+            <AdminStatCard icon={Wallet} label={isOverview ? "Total Savings" : `Total ${reportType} volume`} value={formatNaira(isOverview ? (stats.totalSavings || totalAmount || 0) : (totalAmount || 0))} tone="brand" />
+            <AdminStatCard icon={Users} label={isOverview ? "Total Members" : "Report Entries"} value={isOverview ? Number(stats.totalMembers || 0).toLocaleString() : Number(reportData.length || 0).toLocaleString()} tone="brand" />
+            <AdminStatCard icon={Building2} label="Loans Disbursed" value={formatNaira(stats.totalLoansDisbursed || 0)} tone="brand" />
+            <AdminStatCard icon={TrendingUp} label="Gross Revenue / Interest" value={formatNaira(stats.totalRevenue || 0)} tone="success" />
           </div>
 
-          {isLoading ? (
-            <div className="p-4">
-              <LoadingState rows={5} />
-            </div>
-          ) : reportData.length === 0 ? (
-            <EmptyState
-              title="No report entries found"
-              description={`There are no recorded ${reportType} entries for ${monthOptions.find((m) => m.value === Number(month))?.label} ${year}.`}
-            />
+          {isOverview ? (
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-extrabold text-[#090f24]">Overview snapshot</h3>
+              <p className="mt-1 text-sm text-text-secondary">This view shows aggregate metrics from the backend overview report. Switch to Savings, Loans, or Revenue to inspect ledger entries when available.</p>
+            </Card>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#dee3f9]/20 border-b border-[#dee3f9] text-gray-500 font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Member / Reference</th>
-                    <th className="px-4 py-3">Category / Type</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#dee3f9]">
-                  {reportData.map((item, idx) => {
-                    const memberName = item.user?.fullName || item.userName || item.member || "System Account";
-                    const refCode = item.reference || item.transactionRef || item._id || item.id || `LOG-${idx + 1}`;
-                    const category = item.type || item.category || reportType;
-                    const amountVal = item.amount || item.principalAmount || item.total || 0;
-                    const itemStatus = item.status || "completed";
-
-                    return (
-                      <tr key={item._id || item.id || idx} className="hover:bg-[#dee3f9]/10 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-600 whitespace-nowrap">
-                          {formatDate(item.createdAt || item.date || new Date(), "MMM dd, yyyy")}
-                        </td>
-                        <td className="px-4 py-3 font-semibold text-[#090f24]">
-                          <p>{memberName}</p>
-                          <span className="text-[10px] font-mono text-gray-400">{refCode}</span>
-                        </td>
-                        <td className="px-4 py-3 capitalize text-gray-600">
-                          <span className="px-2.5 py-0.5 bg-[#dee3f9]/30 rounded-lg border border-[#bdc8f3]/40 font-bold text-[11px] text-[#090f24]">
-                            {category.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-black text-[#090f24]">
-                          {formatNaira(amountVal)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant={
-                              itemStatus === "completed" || itemStatus === "success" || itemStatus === "approved"
-                                ? "success"
-                                : itemStatus === "pending"
-                                ? "warning"
-                                : "danger"
-                            }
-                          >
-                            {itemStatus.toUpperCase()}
-                          </Badge>
-                        </td>
+            <Card className="overflow-hidden rounded-2xl border border-[#bdc8f3]/40 bg-white p-0 shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#dee3f9] bg-[#f8faff] px-4 py-3">
+                <h3 className="text-sm font-extrabold text-[#090f24] capitalize">{reportType} entries</h3>
+                <span className="rounded-full border border-[#bdc8f3]/40 bg-white px-2.5 py-0.5 text-[11px] font-bold text-text-secondary">{reportData.length} record(s)</span>
+              </div>
+              {reportData.length === 0 ? (
+                <EmptyState title="No entries found" description="No records were returned for this report type." className="py-10" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="bg-[#dee3f9]/20 text-[11px] font-bold uppercase tracking-wider text-text-secondary">
+                      <tr>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Member / Reference</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Status</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-[#dee3f9]">
+                      {reportData.map((item, idx) => {
+                        const memberName = item.user?.fullName || item.userId?.fullName || item.userName || item.member || "—";
+                        const ref = item.reference || item.transactionRef || item._id || item.id || `row-${idx + 1}`;
+                        const type = String(item.type || item.category || reportType).replace(/_/g, " ");
+                        const amount = item.amount ?? item.principalAmount ?? item.total ?? 0;
+                        const status = item.status || "completed";
+                        return (
+                          <tr key={item._id || item.id || idx} className="hover:bg-[#f8faff]">
+                            <td className="whitespace-nowrap px-4 py-3 font-medium text-text-secondary">{formatDate(item.createdAt || item.date || item.updatedAt, "MMM dd, yyyy") || "—"}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-[#090f24]">{memberName}</p>
+                              <p className="max-w-[220px] truncate font-mono text-[10px] text-text-muted" title={String(ref)}>{String(ref)}</p>
+                            </td>
+                            <td className="px-4 py-3 capitalize text-text-secondary">{type}</td>
+                            <td className="whitespace-nowrap px-4 py-3 font-extrabold text-[#090f24]">{formatNaira(amount)}</td>
+                            <td className="px-4 py-3"><AdminStatusBadge status={status} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           )}
-        </Card>
-      </div>
-    </div>
+        </>
+      )}
+    </AdminPageShell>
   );
 }
 
-/** Mobile-optimized metric card component for admin reports */
-function MobileReportMetricCard({ icon: Icon, label, value, color = "indigo" }) {
-  return (
-    <div className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 sm:p-4 shadow-xs flex items-center gap-3.5 transition-all hover:shadow-md">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#dee3f9]/40 text-[#131e49]">
-        <Icon className="h-5 w-5 text-[#131e49]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-gray-500 truncate leading-tight">
-          {label}
-        </p>
-        <p className="mt-0.5 wrap-break-word text-base font-black tracking-tight text-[#090f24] sm:text-lg">
-          {value ?? "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
+export default AdminReports;

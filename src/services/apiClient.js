@@ -109,7 +109,8 @@ async function ensureCsrfToken(force = false) {
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-async function request(path, { method = "GET", body, headers, _isRetry } = {}) {
+async function request(path, { method = "GET", body, headers, responseType, _isRetry } = {}) {
+  const responseTypeHint = responseType;
   // Check if body is FormData (e.g., file uploads)
   const isFormData = body instanceof FormData;
 
@@ -156,11 +157,23 @@ async function request(path, { method = "GET", body, headers, _isRetry } = {}) {
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
+  const expectsBlob = responseTypeHint === "blob";
+  const contentType = response.headers.get("content-type") || "";
+  const isBinary = expectsBlob || /application\/(pdf|vnd\.|octet-stream)|spreadsheet|excel/i.test(contentType);
+
   let data = null;
-  try {
-    data = await response.json();
-  } catch {
-    // No JSON body (e.g. 204 No Content)
+  if (isBinary && response.ok) {
+    try {
+      data = await response.blob();
+    } catch {
+      data = null;
+    }
+  } else {
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
   }
 
   // CSRF bootstrap: the very first state-changing request after deploy (or a
@@ -187,6 +200,7 @@ async function request(path, { method = "GET", body, headers, _isRetry } = {}) {
         method,
         body,
         headers: { ...(headers || {}), "X-CSRF-Token": freshToken },
+        responseType,
         _isRetry: true,
       });
     }
@@ -204,9 +218,18 @@ async function request(path, { method = "GET", body, headers, _isRetry } = {}) {
   }
 
   if (!response.ok) {
-    const error = new Error(data?.message || "Request failed");
+    let errorPayload = data;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        errorPayload = text ? JSON.parse(text) : null;
+      } catch {
+        errorPayload = null;
+      }
+    }
+    const error = new Error(errorPayload?.message || "Request failed");
     error.status = response.status;
-    error.data = data;
+    error.data = errorPayload;
     throw error;
   }
 

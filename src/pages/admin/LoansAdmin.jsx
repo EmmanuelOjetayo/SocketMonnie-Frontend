@@ -1,583 +1,328 @@
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { Search, Eye, XCircle, CheckCircle, FileText, RefreshCw, Bell, Clock, Shield, CreditCard, Building2, DollarSign, AlertTriangle, User, ChevronRight, Calendar, Filter, CheckCircle2, Target, Sparkles } from "lucide-react";
+import { Search, Eye, RefreshCw, ChevronLeft, ChevronRight, Landmark, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { useAsync } from "@/hooks/useAsync";
+import { getAdminLoans, getLoanById, approveLoan, rejectLoan } from "@/services/adminService";
+import { formatNaira, formatDate } from "@/utils/format";
+import { AdminPageShell, AdminHero, AdminStatusBadge } from "@/components/admin";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { TopHeader } from "@/components/navigation/TopHeader";
-import { Badge, statusToBadgeProps } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { ErrorState } from "@/components/feedback/ErrorState";
 import { BottomSheet } from "@/components/feedback/BottomSheet";
-import { useAsync } from "@/hooks/useAsync";
-import { getAdminLoans, approveLoan, rejectLoan, getLoanById } from "@/services/adminService";
-import { formatNaira, formatDate } from "@/utils/format";
-import { ROUTES } from "@/constants/routes";
-import { cn } from "@/utils/cn";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+
+function getBorrower(loan) {
+  return loan?.userId && typeof loan.userId === "object" ? loan.userId : loan?.user || {};
+}
 
 export function AdminLoans() {
-  const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  // Data Fetching
-  const { data, isLoading, refetch } = useAsync(
-    () => getAdminLoans({ status: statusFilter, search, page, limit }),
-    [statusFilter, search, page]
+  useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search.trim()), 350); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilter]);
+
+  const { data, isLoading, error, refetch } = useAsync(
+    () => getAdminLoans({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit }),
+    [statusFilter, debouncedSearch, page]
   );
 
-  // Response Payload Normalization
-  const loans = data?.loans || data?.data?.loans || data?.data || [];
+  const loans = data?.loans || data?.data?.loans || (Array.isArray(data?.data) ? data.data : []) || [];
   const pagination = data?.pagination || data?.data?.pagination || {};
-  const totalCount = pagination.total || loans.length;
+  const totalCount = Number(pagination.total || loans.length || 0);
+  const totalPages = Math.max(1, Number(pagination.totalPages || Math.ceil(totalCount / limit) || 1));
 
-  // Detail Sheet State
-  const [selectedLoanId, setSelectedLoanId] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
   const [loanDetail, setLoanDetail] = useState(null);
-
-  // Per-Action Loading Indicators
-  const [isApproving, setIsApproving] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
-
-  // Modal Targets
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
   const [approveTarget, setApproveTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [busy, setBusy] = useState({ approve: false, reject: false });
 
-  const activeRequestId = useRef(0);
-
-  // Load Full Details
-  const openDetail = useCallback(async (loanId) => {
-    const currentReq = ++activeRequestId.current;
-    setSelectedLoanId(loanId);
-    setDetailLoading(true);
+  async function openLoan(loan) {
+    setSelectedLoan(loan);
     setLoanDetail(null);
-
+    setDetailError(null);
+    setDetailLoading(true);
     try {
-      const res = await getLoanById(loanId);
-      if (currentReq === activeRequestId.current) {
-        setLoanDetail(res?.loan || res?.data || res);
-      }
+      const res = await getLoanById(loan._id || loan.id);
+      setLoanDetail(res?.loan || res?.data?.loan || res?.data || res);
     } catch (err) {
-      if (currentReq === activeRequestId.current) {
-        toast.error("Failed to load loan details");
-        setSelectedLoanId(null);
-      }
+      const msg = err?.data?.message || err?.message || "Failed to load loan details.";
+      setDetailError(msg);
+      toast.error(msg);
     } finally {
-      if (currentReq === activeRequestId.current) {
-        setDetailLoading(false);
-      }
+      setDetailLoading(false);
     }
-  }, []);
+  }
 
-  // Sync Open Detail After Action
-  const refreshDetailInPlace = async (loanId) => {
-    try {
-      const res = await getLoanById(loanId);
-      setLoanDetail(res?.loan || res?.data || res);
-    } catch (err) {
-      setSelectedLoanId(null);
-    }
-  };
+  function closeLoan() {
+    setSelectedLoan(null);
+    setLoanDetail(null);
+    setDetailError(null);
+  }
 
-  // Confirm status flow
-  const confirmApprove = async () => {
+  async function handleApprove() {
     if (!approveTarget) return;
-    setIsApproving(true);
+    setBusy((b) => ({ ...b, approve: true }));
     try {
       const res = await approveLoan(approveTarget);
-      toast.success(res?.message || "Loan confirmed and activated.");
+      toast.success(res?.message || "Loan approved successfully.");
       setApproveTarget(null);
       await refetch();
-      if (selectedLoanId) await refreshDetailInPlace(selectedLoanId);
-    } catch (error) {
-      toast.error(
-        error?.data?.message || error?.response?.data?.message || "Failed to confirm loan."
-      );
+      if (selectedLoan) await openLoan(selectedLoan);
+    } catch (err) {
+      toast.error(err?.data?.message || err?.message || "Failed to approve loan.");
     } finally {
-      setIsApproving(false);
+      setBusy((b) => ({ ...b, approve: false }));
     }
-  };
+  }
 
-  // Confirm Reject Flow
-  const confirmReject = async () => {
-    if (!rejectTarget || !rejectReason.trim()) {
-      toast.error("Please enter a rejection reason.");
+  async function handleReject() {
+    const reason = rejectReason.trim();
+    if (!rejectTarget) return;
+    if (reason.length < 3) {
+      toast.error("Rejection reason must be at least 3 characters.");
       return;
     }
-    setIsRejecting(true);
+    setBusy((b) => ({ ...b, reject: true }));
     try {
-      await rejectLoan(rejectTarget, rejectReason.trim());
-      toast.success("Loan rejected.");
+      const res = await rejectLoan(rejectTarget, reason);
+      toast.success(res?.message || "Loan rejected successfully.");
       setRejectTarget(null);
       setRejectReason("");
       await refetch();
-      if (selectedLoanId) await refreshDetailInPlace(selectedLoanId);
-    } catch (error) {
-      toast.error(
-        error?.data?.message || error?.response?.data?.message || "Failed to reject loan."
-      );
+      if (selectedLoan) await openLoan(selectedLoan);
+    } catch (err) {
+      toast.error(err?.data?.message || err?.message || "Failed to reject loan.");
     } finally {
-      setIsRejecting(false);
+      setBusy((b) => ({ ...b, reject: false }));
     }
-  };
+  }
 
-  // Extract User Context safely
-  const memberObj = loanDetail?.userId || loanDetail?.user || {};
-  const bankInfo = memberObj.bankDetails || loanDetail?.bankDetails || {};
-  const installments = loanDetail?.installments || loanDetail?.repaymentSchedule || [];
+  const loan = loanDetail || selectedLoan || {};
+  const borrower = getBorrower(loan);
+  const loanId = loan?._id || loan?.id;
 
   return (
-    <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
-      {/* Top Navigation */}
-      <TopHeader
-        onSearch={(q) => setSearch(q)}
+    <AdminPageShell>
+      <AdminHero
+        icon={Landmark}
+        eyebrow="Loan Operations"
+        title="Loan Applications"
+        description="Review loan requests, inspect borrower details, and perform approve/reject actions through live admin loan APIs."
+        actions={
+          <Button variant="outline" size="sm" icon={RefreshCw} onClick={refetch} className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20">Refresh</Button>
+        }
       />
 
-      <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
-
-        {/* Loan Operations Hero Banner */}
-        <div
-          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          style={{ background: "linear-gradient(135deg, #5B76E1 0%, #131e49 50%, #090f24 100%)" }}
-        >
-          <div>
-            <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
-              <Sparkles className="size-4 text-emerald-400" />
-              <span className="text-xs font-semibold">Loan Administration</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
-              Loan Applications
-            </h1>
-            <p className="mt-0.5 text-xs text-[#dee3f9]/80">
-              Review member requests, assess eligibility prerequisites, and issue approvals.
-            </p>
+      <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-3.5 shadow-sm sm:p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+          <div className="md:col-span-7">
+            <Input icon={Search} placeholder="Search by loan number, borrower name/email/code..." value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-xl" />
           </div>
-          <div className="shrink-0">
-            <span className="inline-block rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md px-3.5 py-1.5 text-xs font-extrabold text-[#dee3f9]">
-              {totalCount} Total Applications
-            </span>
-          </div>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="flex-1">
-            <Input
-              placeholder="Search by name, loan ID..."
-              icon={Search}
-              className="rounded-2xl border-[#bdc8f3]/40 bg-white text-xs shadow-sm focus:ring-[#131e49]/20"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="md:col-span-5">
             <select
-              className="flex-1 sm:flex-initial rounded-2xl border border-[#bdc8f3]/40 bg-white px-3 py-2 text-xs font-semibold text-[#090f24] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
+              className="h-12 w-full rounded-xl border border-[#bdc8f3]/40 bg-white px-3 text-sm font-semibold text-[#090f24] focus:border-[#131e49] focus:outline-none focus:ring-2 focus:ring-[#131e49]/15"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="">All Statuses</option>
-              <option value="pending_review">Pending Review</option>
-              <option value="waiting_guarantor">Waiting for Guarantor</option>
-              <option value="active">Active (Disbursed)</option>
-              <option value="completed">Completed</option>
-              <option value="withdrawn">Withdrawn</option>
+              <option value="">All statuses</option>
+              <option value="pending_review">Pending review</option>
+              <option value="approved">Approved</option>
+              <option value="active">Active</option>
+              <option value="waiting_guarantor">Waiting guarantor</option>
               <option value="rejected">Rejected</option>
-              <option value="warning_30_days">Warning (30d)</option>
-              <option value="defaulted_60_days">Defaulted (60d)</option>
-              <option value="restricted_90_days">Restricted (90d)</option>
-              <option value="recovery_120_days">In Recovery (120d)</option>
+              <option value="completed">Completed</option>
+              <option value="defaulted">Defaulted</option>
+              <option value="warning_30_days">Warning (30 days)</option>
+              <option value="defaulted_60_days">Defaulted (60 days)</option>
+              <option value="restricted_90_days">Restricted (90 days)</option>
+              <option value="recovery_120_days">Recovery (120 days)</option>
             </select>
-
-            <Button
-              variant="outline"
-              size="sm"
-              icon={RefreshCw}
-              onClick={refetch}
-              className="rounded-2xl border-[#bdc8f3]/40 bg-white text-[#090f24] shadow-sm hover:bg-[#dee3f9]/30"
-            >
-              Refresh
-            </Button>
           </div>
         </div>
+      </Card>
 
-        {/* Loan Grid List */}
-        {isLoading ? (
-          <LoadingState rows={5} />
-        ) : loans.length === 0 ? (
-          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-6 shadow-sm">
-            <EmptyState
-              title="No loan applications found"
-              description="Adjust your search query or filter settings."
-            />
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {loans.map((loan) => {
-              const { variant, label } = statusToBadgeProps(loan.status);
-              const applicant = loan.user || loan.userId || {};
-              const loanIdStr = loan._id || loan.id || "";
-
+      {isLoading ? (
+        <LoadingState rows={5} />
+      ) : error ? (
+        <ErrorState title="Could not load loans" description={error?.data?.message || error?.message || "Loan applications are unavailable right now."} onRetry={refetch} />
+      ) : loans.length === 0 ? (
+        <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-6 shadow-sm">
+          <EmptyState title="No loan applications found" description="Try adjusting your search or status filter." />
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+            {loans.map((item) => {
+              const b = getBorrower(item);
+              const id = item._id || item.id;
               return (
-                <Card
-                  key={loanIdStr}
-                  className="flex cursor-pointer flex-col justify-between rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm transition-all hover:border-[#1d2d6d]/40 hover:shadow-md active:scale-[0.99]"
-                  onClick={() => openDetail(loanIdStr)}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-bold text-[#090f24]">
-                          {applicant.fullName || applicant.name || "Unknown Member"}
-                        </p>
-                        <p className="font-mono text-[10px] text-gray-500">
-                          Ref: {loan.loanNumber || `#${loanIdStr.slice(-8).toUpperCase()}`}
-                        </p>
+                <Card key={id} className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-extrabold text-[#090f24]">{b.fullName || "Unknown borrower"}</p>
+                        <AdminStatusBadge status={item.status || "pending_review"} />
                       </div>
-                      <Badge variant={variant}>{label}</Badge>
+                      <p className="mt-0.5 text-xs text-text-secondary break-all">{b.email || "—"}{b.phone ? ` • ${b.phone}` : ""}</p>
+                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <Info label="Loan" value={item.loanNumber || `#${String(id).slice(-6)}`} mono />
+                        <Info label="Principal" value={formatNaira(item.principalAmount || 0)} />
+                        <Info label="Duration" value={`${item.durationMonths || item.duration || "—"} mo`} />
+                        <Info label="Applied" value={formatDate(item.createdAt, "MMM dd, yyyy") || "—"} />
+                      </div>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#bdc8f3]/30 bg-[#dee3f9]/15 p-2 text-[11px]">
-                      <div>
-                        <span className="block text-[10px] font-medium text-gray-500">Principal</span>
-                        <span className="font-extrabold text-[#090f24]">
-                          {formatNaira(loan.principalAmount)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-medium text-gray-500">Tenure</span>
-                        <span className="font-semibold text-[#090f24]">
-                          {loan.durationMonths} {loan.durationMonths === 1 ? "Mo" : "Mos"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] font-medium text-gray-500">Applied</span>
-                        <span className="font-semibold text-gray-600">
-                          {formatDate(loan.createdAt, "MMM dd")}
-                        </span>
-                      </div>
+                    <div className="flex sm:flex-col gap-2">
+                      <Button size="sm" variant="outline" icon={Eye} onClick={() => openLoan(item)} className="rounded-xl">Inspect</Button>
                     </div>
                   </div>
                 </Card>
               );
             })}
           </div>
-        )}
 
-        {/* ── LOAN DETAIL BOTTOM SHEET ─────────────────────── */}
-        <BottomSheet
-          isOpen={!!selectedLoanId}
-          onClose={() => {
-            setSelectedLoanId(null);
-            setLoanDetail(null);
-          }}
-          title="Loan Application Review"
-        >
-          {detailLoading ? (
-            <LoadingState rows={4} />
-          ) : loanDetail ? (
-            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1 pb-4">
-              
-              {/* Header Status & Direct Actions Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#bdc8f3]/40 bg-[#dee3f9]/20 p-3 shadow-sm">
-                <Badge variant={statusToBadgeProps(loanDetail.status).variant}>
-                  {statusToBadgeProps(loanDetail.status).label}
-                </Badge>
-
-                <div className="flex items-center gap-2">
-                  {loanDetail.status === "pending_review" && (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="success"
-                        icon={CheckCircle}
-                        disabled={isApproving}
-                        onClick={() => setApproveTarget(loanDetail._id || loanDetail.id)}
-                        className="rounded-xl font-bold"
-                      >
-                        {isApproving ? "Approving..." : "Approve"}
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="danger"
-                        icon={XCircle}
-                        disabled={isRejecting}
-                        onClick={() => {
-                          setRejectTarget(loanDetail._id || loanDetail.id);
-                          setRejectReason("");
-                        }}
-                        className="rounded-xl font-bold"
-                      >
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Loan Financial Core Summary */}
-              <div className="space-y-2.5 rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
-                <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight text-[#090f24]">
-                  <FileText className="size-3.5 text-emerald-600" /> Financial Parameters
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Loan Reference</span>
-                    <span className="font-mono font-bold text-[#090f24]">
-                      {loanDetail.loanNumber || (loanDetail._id || loanDetail.id || "").slice(-8).toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Principal</span>
-                    <span className="font-extrabold text-emerald-600">
-                      {formatNaira(loanDetail.principalAmount)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Total Repayable</span>
-                    <span className="font-extrabold text-[#090f24]">
-                      {formatNaira(loanDetail.totalRepayable)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Interest Rate</span>
-                    <span className="font-semibold text-[#090f24]">
-                      {loanDetail.interestRate}% (₦{formatNaira(loanDetail.interestAmount)})
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Outstanding Balance</span>
-                    <span className="font-bold text-rose-600">
-                      {formatNaira(loanDetail.remainingBalance)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Duration</span>
-                    <span className="font-semibold text-[#090f24]">
-                      {loanDetail.durationMonths} Month(s)
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Status</span>
-                    <span className="font-semibold text-[#090f24] capitalize">
-                      {loanDetail.status === "active" && loanDetail.payoutStatus === "completed"
-                        ? "Manual disbursement confirmed"
-                        : (loanDetail.payoutStatus || "pending").replace(/_/g, " ")}
-                    </span>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Reference</span>
-                    <span className="font-mono text-[11px] text-[#090f24] break-all">
-                      {loanDetail.payoutReference || loanDetail.payoutRef || "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Mode</span>
-                    <span className="font-semibold text-[#090f24]">Manual (outside platform)</span>
-                  </div>
-                  <div>
-                    <span className="block text-[10px] text-gray-500 font-medium">Net Amount to Transfer</span>
-                    <span className="font-extrabold text-emerald-700">
-                      {formatNaira(loanDetail.disbursementAmount ?? Math.max(0, (loanDetail.principalAmount || 0) - (loanDetail.interestAmount || 0)))}
-                    </span>
-                  </div>
-                </div>
-
-                {loanDetail.payoutFailureReason && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700">
-                    <span className="font-bold">Payout issue:</span> {loanDetail.payoutFailureReason}
-                  </div>
-                )}
-
-                {loanDetail.purpose && (
-                  <div className="border-t border-[#dee3f9] pt-2 text-xs">
-                    <span className="block text-[10px] text-gray-500 font-medium">Stated Purpose</span>
-                    <p className="font-medium text-[#090f24] mt-0.5">{loanDetail.purpose}</p>
-                  </div>
-                )}
-
-                {/* Recovery & Collection Status */}
-                {(loanDetail.status === "defaulted_60_days" || loanDetail.status === "restricted_90_days" || loanDetail.status === "recovery_120_days") && (
-                  <div className="mt-4 p-4 rounded-2xl border border-amber-300 bg-amber-50/30 text-xs text-amber-800">
-                    <strong>Recovery Status:</strong> {loanDetail.recoveryStatus || "in_recovery"}
-                  </div>
-                )}
-
-                {loanDetail.status === "defaulted_60_days" && (
-                  <div className="mt-3 p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-600 text-[10px]">
-                    <strong>Guarantor Recovery:</strong> Tracking initiated at default_60_days. Each guarantor responsible for 25% of recovery obligation subject to guaranteed amount limits. No automatic deductions executed without authorized collection mechanism and mandate consent.
-                  </div>
-                )}
-
-                {loanDetail.status === "recovery_120_days" && (
-                  <div className="mt-3 p-3 rounded-xl border border-emerald-300 bg-emerald-50/30 text-emerald-700 text-[10px]">
-                    <strong>Recovery Active:</strong> Guarantor recovery obligations being tracked monthly. Borrower repayments reduce guarantor exposure. Collection attempts tracked with full audit trail.
-                  </div>
-                )}
-              </div>
-
-              {/* Member Profile */}
-              {memberObj && (
-                <div className="space-y-2 rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight text-[#090f24]">
-                    <User className="size-3.5 text-emerald-600" /> Applicant Overview
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">Full Name</span>
-                      <span className="font-bold text-[#090f24]">{memberObj.fullName || memberObj.name || "N/A"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">Email</span>
-                      <span className="font-medium text-[#090f24] truncate block">{memberObj.email || "N/A"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">Bank Account</span>
-                      <span className="font-semibold text-[#090f24]">
-                        {bankInfo.bankName || "N/A"} — {bankInfo.accountNumber || "N/A"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">KYC Status</span>
-                      <span className="font-bold text-[#090f24] capitalize">{memberObj.kycStatus || "Unverified"}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Prerequisites Check */}
-              {loanDetail.status === "pending_review" && (
-                <div className="space-y-1 rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
-                  <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight text-[#090f24]">
-                    <Shield className="size-3.5 text-emerald-600" /> Application Checks
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">Bank Account Setup</span>
-                      <span className="font-semibold text-[#090f24]">{!!(bankInfo.accountNumber && bankInfo.bankCode) ? "Verified" : "Missing"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">Bank Name Match</span>
-                      <span className="font-semibold text-[#090f24]">{!!bankInfo.accountName ? "Verified" : "Missing"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[10px] text-gray-500 font-medium">KYC Verification Passed</span>
-                      <span className="font-semibold text-[#090f24] capitalize">{memberObj.kycStatus === "approved" ? "Passed" : "Not Approved"}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Installments Breakdown */}
-              {installments.length > 0 && (
-                <div className="space-y-2 rounded-2xl border border-[#bdc8f3]/40 bg-white p-4 shadow-sm">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight text-[#090f24]">
-                    <Calendar className="size-3.5 text-emerald-600" /> Repayment Timeline
-                  </h4>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 divide-y divide-[#dee3f9]/50">
-                    {installments.map((inst, i) => (
-                      <div
-                        key={inst._id || i}
-                        className="flex items-center justify-between pt-1.5 text-xs first:pt-0"
-                      >
-                        <div>
-                          <span className="font-bold text-[#090f24]">
-                            Instalment #{inst.installmentNumber || i + 1}
-                          </span>
-                          <span className="text-[10px] text-gray-500 block">
-                            Due: {formatDate(inst.dueDate, "MMM dd, yyyy")}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-extrabold text-[#090f24] block">
-                            {formatNaira(inst.amountDue)}
-                          </span>
-                          <span className="text-[10px] font-bold uppercase text-[#3b5bdb]">
-                            {inst.status || "Pending"}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Rejection Note */}
-              {loanDetail.status === "rejected" && loanDetail.rejectionReason && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1">
-                  <span className="font-bold flex items-center gap-1">
-                    <AlertTriangle className="size-3.5 text-rose-600" /> Rejection Description:
-                  </span>
-                  <p>{loanDetail.rejectionReason}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500 py-4">Failed to load detailed loan object.</p>
-          )}
-        </BottomSheet>
-
-        {/* ── APPROVE CONFIRM DIALOG ───────────────────────── */}
-        <ConfirmDialog
-          isOpen={!!approveTarget}
-          onClose={() => setApproveTarget(null)}
-          title="Confirm Approval & Manual Disbursement"
-          description="Confirm only after you have manually transferred the net disbursement amount to the borrower's verified profile bank account. This action records admin-confirmed manual disbursement, activates the loan, and starts the repayment schedule. No automated bank transfer is performed by the platform."
-          confirmLabel={isApproving ? "Confirming..." : "Approve & Confirm Manual Disbursement"}
-          onConfirm={confirmApprove}
-          variant="success"
-        />
-
-        {/* ── REJECT DIALOG WITH REASON INPUT ──────────────── */}
-        <BottomSheet
-          isOpen={!!rejectTarget}
-          onClose={() => {
-            setRejectTarget(null);
-            setRejectReason("");
-          }}
-          title="Reject Loan Application"
-        >
-          <div className="space-y-4">
-            <p className="text-xs text-gray-600">
-              Provide a clear reason for rejecting this application. This note will be recorded in the system audit and shown to the applicant.
-            </p>
-            <textarea
-              className="min-h-[100px] w-full rounded-2xl border border-[#bdc8f3]/50 bg-white p-3 text-xs text-[#090f24] placeholder:text-gray-400 focus:border-[#131e49] focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
-              placeholder="e.g. Insufficient savings balance to cover guarantor minimum ratio..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                fullWidth
-                size="sm"
-                onClick={() => {
-                  setRejectTarget(null);
-                  setRejectReason("");
-                }}
-                className="rounded-xl"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                fullWidth
-                size="sm"
-                onClick={confirmReject}
-                disabled={isRejecting || !rejectReason.trim()}
-                className="rounded-xl font-bold"
-              >
-                {isRejecting ? "Rejecting..." : "Reject Loan"}
-              </Button>
+          <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-[#bdc8f3]/30 bg-white px-4 py-3 sm:flex-row">
+            <p className="text-xs font-medium text-text-secondary">Page {page} of {totalPages} • {totalCount.toLocaleString()} loans</p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" icon={ChevronLeft} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-xl">Previous</Button>
+              <Button variant="outline" size="sm" icon={ChevronRight} iconPosition="right" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} className="rounded-xl">Next</Button>
             </div>
           </div>
-        </BottomSheet>
-      </div>
+        </>
+      )}
+
+      <BottomSheet isOpen={!!selectedLoan} onClose={closeLoan} title="Loan details" className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        {detailLoading ? (
+          <LoadingState rows={5} />
+        ) : detailError ? (
+          <ErrorState title="Could not load loan details" description={detailError} onRetry={() => selectedLoan && openLoan(selectedLoan)} />
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="brand">{loan.loanNumber || `#${String(loanId || "").slice(-6)}`}</Badge>
+              <AdminStatusBadge status={loan.status || "pending_review"} />
+              {loan.payoutStatus ? <Badge variant={loan.payoutStatus === "completed" ? "success" : loan.payoutStatus === "failed" ? "danger" : "warning"}>Payout: {String(loan.payoutStatus).replace(/_/g, " ")}</Badge> : null}
+            </div>
+
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 p-4 shadow-sm">
+              <h4 className="text-sm font-extrabold text-[#090f24]">Borrower</h4>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Info label="Name" value={borrower.fullName || "—"} />
+                <Info label="Email" value={borrower.email || "—"} />
+                <Info label="Phone" value={borrower.phone || "—"} />
+                <Info label="KYC status" value={String(borrower.kycStatus || "—").replace(/_/g, " ")} />
+              </div>
+            </Card>
+
+            <Card className="rounded-2xl border border-[#bdc8f3]/40 p-4 shadow-sm">
+              <h4 className="text-sm font-extrabold text-[#090f24]">Loan summary</h4>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Info label="Principal" value={formatNaira(loan.principalAmount || 0)} />
+                <Info label="Interest rate" value={loan.interestRate != null ? `${loan.interestRate}%` : "—"} />
+                <Info label="Interest" value={formatNaira(loan.interestAmount || 0)} />
+                <Info label="Total repayable" value={formatNaira(loan.totalRepayable || 0)} />
+                <Info label="Remaining" value={formatNaira(loan.remainingBalance ?? loan.outstandingBalance ?? 0)} />
+                <Info label="Duration" value={`${loan.durationMonths || loan.duration || "—"} month(s)`} />
+                <Info label="Applied" value={formatDate(loan.createdAt, "MMM dd, yyyy h:mm a") || "—"} />
+                <Info label="Purpose" value={loan.purpose || loan.loanPurpose || "—"} />
+              </div>
+              {loan.rejectionReason ? (
+                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                  <p className="font-bold">Rejection reason</p>
+                  <p className="mt-0.5">{loan.rejectionReason}</p>
+                </div>
+              ) : null}
+              {loan.payoutFailureReason ? (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  <p className="font-bold">Payout issue</p>
+                  <p className="mt-0.5">{loan.payoutFailureReason}</p>
+                </div>
+              ) : null}
+            </Card>
+
+            {Array.isArray(loan.installments || loan.repaymentSchedule) && (loan.installments || loan.repaymentSchedule).length ? (
+              <Card className="rounded-2xl border border-[#bdc8f3]/40 p-4 shadow-sm">
+                <h4 className="text-sm font-extrabold text-[#090f24]">Repayment schedule</h4>
+                <div className="mt-3 space-y-2">
+                  {(loan.installments || loan.repaymentSchedule).slice(0, 12).map((inst, idx) => (
+                    <div key={inst._id || idx} className="flex flex-col gap-1 rounded-xl border border-[#dee3f9] bg-[#f8faff] p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[#090f24]">Installment {inst.installmentNumber || idx + 1}</p>
+                        <p className="text-xs text-text-secondary">Due: {formatDate(inst.dueDate, "MMM dd, yyyy") || "—"}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <span className="text-sm font-extrabold text-[#090f24]">{formatNaira(inst.amount || inst.totalAmount || 0)}</span>
+                        <AdminStatusBadge status={inst.status || "pending"} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+
+            {String(loan.status || "").toLowerCase() === "pending_review" ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button fullWidth variant="success" icon={CheckCircle} onClick={() => setApproveTarget(loanId)} className="rounded-xl">Approve loan</Button>
+                <Button fullWidth variant="danger" icon={XCircle} onClick={() => { setRejectTarget(loanId); setRejectReason(""); }} className="rounded-xl">Reject loan</Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </BottomSheet>
+
+      <ConfirmDialog
+        isOpen={!!approveTarget}
+        onClose={() => setApproveTarget(null)}
+        onConfirm={handleApprove}
+        title="Approve loan application"
+        description="This sends an approval request to the backend. Only confirm if you have completed any required off-platform disbursement steps for this loan."
+        confirmLabel={busy.approve ? "Approving..." : "Approve loan"}
+        variant="success"
+        isLoading={busy.approve}
+      />
+
+      <BottomSheet isOpen={!!rejectTarget} onClose={() => { if (!busy.reject) { setRejectTarget(null); setRejectReason(""); } }} title="Reject loan application">
+        <div className="space-y-4">
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p>Provide a clear reason (minimum 3 characters). The applicant will be notified.</p>
+          </div>
+          <textarea
+            className="min-h-[110px] w-full rounded-2xl border border-[#bdc8f3]/50 bg-white p-3 text-sm text-[#090f24] placeholder:text-gray-400 focus:border-[#131e49] focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
+            placeholder="Enter rejection reason..."
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+          />
+          <div className="flex gap-3">
+            <Button variant="outline" fullWidth onClick={() => { setRejectTarget(null); setRejectReason(""); }} disabled={busy.reject} className="rounded-xl">Cancel</Button>
+            <Button variant="danger" fullWidth onClick={handleReject} disabled={busy.reject || rejectReason.trim().length < 3} className="rounded-xl font-bold">
+              {busy.reject ? "Rejecting..." : "Reject loan"}
+            </Button>
+          </div>
+        </div>
+      </BottomSheet>
+    </AdminPageShell>
+  );
+}
+
+function Info({ label, value, mono = false }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">{label}</p>
+      <p className={`mt-0.5 break-words text-sm font-semibold text-[#090f24] ${mono ? "font-mono text-xs" : ""}`}>{value ?? "—"}</p>
     </div>
   );
 }
+
+export default AdminLoans;

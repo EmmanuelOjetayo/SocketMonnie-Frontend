@@ -1,49 +1,38 @@
 import { NavLink } from "react-router-dom";
-import { Activity, Award, FileBarChart, Landmark, LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Users, Landmark, FileBarChart, ArrowDownToLine, Activity, Settings } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { ROUTES } from "@/constants/routes";
 
 const ITEMS = [
-  { to: ROUTES.ADMIN, icon: LayoutDashboard, label: "Overview" },
+  { to: ROUTES.ADMIN, icon: LayoutDashboard, label: "Home", end: true },
   { to: ROUTES.ADMIN_MEMBERS, icon: Users, label: "Members" },
   { to: ROUTES.ADMIN_LOANS, icon: Landmark, label: "Loans" },
-  { to: ROUTES.ADMIN_SCORE_CONFIG, icon: Award, label: "Score" },
+  { to: ROUTES.WITHDRAWS, icon: ArrowDownToLine, label: "Withdraw" },
   { to: ROUTES.ADMIN_REPORTS, icon: FileBarChart, label: "Reports" },
   { to: ROUTES.ADMIN_AUDIT, icon: Activity, label: "Audit" },
-  { to: ROUTES.WITHDRAWS, icon: Landmark, label: "Withdraws" },
+  { to: ROUTES.ADMIN_SETTINGS, icon: Settings, label: "Settings" },
 ];
 
 export function AdminBottomNav() {
   return (
-    <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-xl -translate-x-1/2 border-t border-gray-100 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-      <ul className="flex items-center justify-around">
-        {ITEMS.map(({ to, icon: Icon, label }) => (
-          <li key={to} className="flex flex-1 items-center justify-center">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200/80 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(9,15,36,0.08)] backdrop-blur">
+      <ul className="mx-auto flex max-w-xl items-center justify-between gap-1 overflow-x-auto">
+        {ITEMS.map(({ to, icon: Icon, label, end }) => (
+          <li key={to} className="min-w-0 flex-1">
             <NavLink
               to={to}
-              end={to === ROUTES.ADMIN}
+              end={end}
               className={({ isActive }) =>
                 cn(
-                  "relative flex flex-col items-center justify-center transition-all duration-200 ease-in-out",
-                  isActive
-                    ? "size-16 -translate-y-1 rounded-full bg-[#3B52C6] text-white shadow-md"
-                    : "gap-1 text-gray-700 hover:text-[#3B52C6]"
+                  "flex min-h-[52px] min-w-[52px] flex-col items-center justify-center rounded-2xl px-1 py-1.5 transition-all",
+                  isActive ? "bg-[#3B52C6] text-white shadow-sm" : "text-gray-600 hover:bg-[#dee3f9]/40 hover:text-[#3B52C6]"
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className="size-5" strokeWidth={isActive ? 2 : 1.75} />
-                  <span
-                    className={cn(
-                      "font-medium leading-tight",
-                      isActive
-                        ? "text-[11px] font-semibold text-white"
-                        : "text-[11px] text-gray-800"
-                    )}
-                  >
-                    {label}
-                  </span>
+                  <Icon className="size-[18px]" strokeWidth={isActive ? 2.2 : 1.8} />
+                  <span className={cn("mt-0.5 truncate text-[10px] font-semibold leading-tight", isActive ? "text-white" : "text-current")}>{label}</span>
                 </>
               )}
             </NavLink>
@@ -53,3 +42,5 @@ export function AdminBottomNav() {
     </nav>
   );
 }
+
+export default AdminBottomNav;
