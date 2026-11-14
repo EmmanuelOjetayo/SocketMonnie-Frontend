@@ -502,7 +502,7 @@ export function Profile() {
     <div className="min-h-screen bg-[#F8FAFC]">
       {/* BRAND HEADER MATCHING TOPHEADER DESIGN */}
       <header
-        className="relative text-white px-5 pt-4 pb-8 rounded-b-[28px] shadow-md"
+        className="relative text-white px-5 pt-4 pb-6 rounded-b-[24px] shadow-md"
          style={{
         background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
       }}
@@ -562,7 +562,7 @@ export function Profile() {
         </div>
       </header>
 
-      <div className="px-5 -mt-4 pb-8 space-y-4">
+      <div className="px-5 pt-4 pb-8 space-y-4">
         {/* Horizontal Stats */}
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 pt-1">
           <Card className="min-w-[130px] rounded-2xl border border-gray-100 bg-white p-3.5 text-center shadow-sm flex-1">
