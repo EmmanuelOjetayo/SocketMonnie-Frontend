@@ -62,7 +62,7 @@ export function LoanDetails() {
           )}
         </div>
 
-        {loan.status === "active" && loan.remainingBalance > 0 && (
+        {["active", "warning_30_days", "defaulted_60_days", "restricted_90_days", "recovery_120_days"].includes(loan.status) && loan.remainingBalance > 0 && (
           <Button fullWidth onClick={() => navigate(ROUTES.LOAN_REPAY)}>
             Make Repayment
           </Button>

@@ -47,7 +47,7 @@ export function CreatePin() {
 
         if (res?.success) {
           toast.success(res.message || "PIN set successfully!");
-          navigate(ROUTES.DASHBOARD);
+          navigate(ROUTES.ONBOARDING_SUCCESS || "/onboarding/success", { replace: true });
         } else {
           toast.error(res?.message || "Could not set PIN");
         }

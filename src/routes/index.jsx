@@ -106,6 +106,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.ONBOARDING_KYC, element: <KycUpload /> },
       { path: ROUTES.ONBOARDING_CREATE_PIN, element: <CreatePin /> },
       { path: ROUTES.ONBOARDING_BIOMETRICS, element: <Biometrics /> },
+      { path: ROUTES.ONBOARDING_SUCCESS, element: <KycUpload /> },
     ],
   },
   {

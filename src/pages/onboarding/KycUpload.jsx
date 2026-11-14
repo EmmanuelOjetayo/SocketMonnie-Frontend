@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { CreditCard, UploadCloud, ShieldCheck, Check } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -8,6 +8,8 @@ import { ROUTES } from "@/constants/routes";
 
 export function KycUpload() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isSuccessView = location.pathname === (ROUTES.ONBOARDING_SUCCESS || "/onboarding/success");
 
   // Personal Info Extras (Backend `UpdatePersonalInfo` sync)
   const [address, setAddress] = useState("");
@@ -25,6 +27,8 @@ export function KycUpload() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+
+  const showSuccess = isSuccessView || isCompleted;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,7 +65,7 @@ export function KycUpload() {
       if (res?.success) {
         toast.success("KYC Uploaded successfully!");
         localStorage.removeItem("user_email");
-        setIsCompleted(true);
+        navigate(ROUTES.ONBOARDING_CREATE_PIN || "/onboarding/create-pin", { replace: true });
       }
     } catch (err) {
       const errMsg =
@@ -74,82 +78,90 @@ export function KycUpload() {
 
   return (
     <div className="min-h-screen w-full bg-[#F8F9FB] flex flex-col items-center pb-10">
-      <div className="w-full bg-[#3B62EC] rounded-b-[40px] pt-10 pb-20 px-4 flex flex-col items-center justify-center text-white relative shadow-md">
-        <img src={logo} alt="Socket Moniee" className="h-10 w-auto object-contain mb-3" />
-        <h1 className="text-2xl font-bold tracking-tight">Complete KYC</h1>
+      <div className="w-full bg-[#3B62EC] rounded-b-[36px] pt-10 pb-24 px-4 flex flex-col items-center text-white relative shadow-md">
+        <img src={logo} alt="SocketMonnie" className="h-11 w-auto object-contain mb-4" />
+        <h1 className="text-[28px] leading-tight font-bold tracking-tight">Create an account</h1>
 
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between relative px-4">
-            <div className="absolute top-4 left-8 right-8 h-[2px] bg-gray-200 z-0" />
+        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-[92%] max-w-[420px] bg-white rounded-2xl px-3 py-4 shadow-sm border border-gray-100">
+          <div className="flex items-start justify-between relative">
+            <div className="absolute top-[18px] left-[12%] right-[12%] h-[2px] bg-[#D9DEE8] z-0" />
 
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-[#3B62EC] text-white font-bold">✓</div>
-              <span className="text-[10px] font-semibold text-gray-500 mt-2">Registration</span>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-[#3B62EC] text-white font-bold">✓</div>
-              <span className="text-[10px] font-semibold text-gray-500 mt-2">OTP Verify</span>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-[#3B62EC] text-white font-bold">
-                {isCompleted ? "✓" : "3"}
+            {[
+              { label: "Personal", num: 1, state: "done" },
+              { label: "KYC Verification", num: 2, state: showSuccess ? "done" : "current" },
+              { label: "Review", num: 3, state: showSuccess ? "done" : "pending" },
+              { label: "Completed", num: 4, state: showSuccess ? "done" : "pending" },
+            ].map((step) => (
+              <div key={step.label} className="relative z-10 flex flex-col items-center flex-1 px-1">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    step.state === "pending"
+                      ? "bg-[#E9ECF2] text-[#7C8597]"
+                      : "bg-[#3B62EC] text-white"
+                  }`}
+                >
+                  {step.state === "done" ? (
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    step.num
+                  )}
+                </div>
+                <span
+                  className={`text-[10px] leading-tight mt-2 text-center whitespace-nowrap ${
+                    step.state === "pending" ? "text-[#9AA3B2] font-medium" : "text-[#1F2937] font-semibold"
+                  }`}
+                >
+                  {step.label}
+                </span>
               </div>
-              <span className="text-[10px] font-bold text-gray-900 mt-2">KYC Setup</span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="w-full max-w-md px-6 pt-16 flex-1 flex flex-col">
-        {isCompleted ? (
-  /* SUCCESS SCREEN MATCHING DESIGN */
-  <div className="flex-1 flex flex-col items-center justify-between text-center py-6">
-    <div className="flex flex-col items-center justify-center my-auto w-full">
-      {/* Blue Starburst / Scalloped Badge Icon */}
-      <div className="relative w-36 h-36 flex items-center justify-center my-8">
-        <svg
-          viewBox="0 0 100 100"
-          className="w-full h-full text-[#3B62EC] drop-shadow-sm fill-current"
-        >
-          <path d="M50 0 L58 8 L69 5 L73 16 L84 18 L84 29 L94 35 L90 46 L98 55 L90 64 L94 75 L84 81 L84 92 L73 94 L69 105 L58 102 L50 110 L42 102 L31 105 L27 94 L16 92 L16 81 L6 75 L10 64 L2 55 L10 46 L6 35 L16 29 L16 18 L27 16 L31 5 L42 8 Z" />
-        </svg>
-        <svg
-          className="absolute w-14 h-14 text-white stroke-[3.5]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
-      </div>
+      <div className="w-full max-w-md px-6 pt-20 flex-1 flex flex-col">
+        {showSuccess ? (
+          <div className="flex-1 flex flex-col items-center text-center pt-2 pb-4">
+            <div className="flex flex-col items-center justify-center w-full mt-8">
+              <div className="relative w-[168px] h-[168px] flex items-center justify-center mb-8">
+                <svg viewBox="0 0 100 100" className="w-full h-full text-[#3B62EC] fill-current">
+                  <path d="M 50.00 2.00 L 56.26 10.49 L 64.83 4.35 L 68.16 14.36 L 78.21 11.17 L 78.28 21.72 L 88.83 21.79 L 85.64 31.84 L 95.65 35.17 L 89.51 43.74 L 98.00 50.00 L 89.51 56.26 L 95.65 64.83 L 85.64 68.16 L 88.83 78.21 L 78.28 78.28 L 78.21 88.83 L 68.16 85.64 L 64.83 95.65 L 56.26 89.51 L 50.00 98.00 L 43.74 89.51 L 35.17 95.65 L 31.84 85.64 L 21.79 88.83 L 21.72 78.28 L 11.17 78.21 L 14.36 68.16 L 4.35 64.83 L 10.49 56.26 L 2.00 50.00 L 10.49 43.74 L 4.35 35.17 L 14.36 31.84 L 11.17 21.79 L 21.72 21.72 L 21.79 11.17 L 31.84 14.36 L 35.17 4.35 L 43.74 10.49 Z" />
+                </svg>
+                <svg
+                  className="absolute w-[56px] h-[56px] text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
 
-      {/* Typography */}
-      <h2 className="text-2xl font-bold text-gray-900 tracking-tight leading-snug">
-        Account Created <br /> Successfully!
-      </h2>
+              <h2 className="text-[32px] leading-[1.15] font-bold text-[#111827] tracking-tight">
+                Account Created <br /> Successfully!
+              </h2>
 
-      <p className="text-xs text-gray-600 max-w-[260px] mx-auto mt-3 leading-relaxed">
-        Welcome to Socket Moniee Co-operative. <br />
-        Your account is now active and ready to use.
-      </p>
-    </div>
+              <p className="text-[13px] text-[#4B5563] max-w-[300px] mx-auto mt-4 leading-relaxed">
+                Welcome to SocketMonnie Co-operative. <br />
+                Your account is now active and ready to use.
+              </p>
+            </div>
 
-    {/* Bottom Fixed-style Full Pill Button */}
-    {/* Replace the Go to Dashboard button onClick */}
-<button
-  type="button"
-  onClick={() => navigate(ROUTES.ONBOARDING_CREATE_PIN || "/onboarding/create-pin")}
-  className="w-full py-4 bg-[#3B62EC] hover:bg-[#3052D1] text-white font-bold text-base rounded-full shadow-lg shadow-blue-500/25 active:scale-[0.99] transition-all cursor-pointer mt-6"
->
-  Continue to Set PIN
-</button>
-  </div>
+            <div className="mt-auto w-full pt-10">
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.DASHBOARD || "/dashboard")}
+                className="w-full py-4 bg-[#3B62EC] hover:bg-[#3052D1] text-white font-semibold text-[18px] rounded-full shadow-lg shadow-blue-500/20 active:scale-[0.99] transition-all cursor-pointer"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
 ): (
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Background Profile Details */}
