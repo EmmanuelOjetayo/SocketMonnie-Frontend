@@ -119,7 +119,7 @@ export function SocketScoreConfig() {
               <div>
                 <p className="text-sm font-semibold">{c.name}</p>
                 <p className="text-[11px] text-gray-500">{c.description}</p>
-                <p className="text-[10px] text-gray-400">Rule: {c.calculationRule} · {c.formulaStatus}</p>
+                <p className="text-[10px] text-gray-400">Rule: {c.calculationRule} • {c.formulaStatus}</p>
               </div>
               <Input
                 label="Weight"
@@ -179,7 +179,7 @@ export function SocketScoreConfig() {
           <div className="mt-2 space-y-2">
             {history.map((h) => (
               <div key={h._id || h.version} className="rounded-xl bg-[#F8FAFC] p-3 text-xs">
-                <p className="font-bold">v{h.version} {h.isActive ? "· active" : ""}</p>
+                <p className="font-bold">v{h.version} {h.isActive ? "• active" : ""}</p>
                 <p className="text-gray-500">{h.changeNotes} · {new Date(h.createdAt).toLocaleString()}</p>
                 <p className="text-gray-500">{(h.components || []).map((c) => `${c.code}:${c.weight}`).join(" | ")}</p>
               </div>

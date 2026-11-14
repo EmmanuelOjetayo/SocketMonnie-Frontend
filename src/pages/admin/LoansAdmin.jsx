@@ -361,12 +361,61 @@ export function AdminLoans() {
                       {loanDetail.durationMonths} Month(s)
                     </span>
                   </div>
+                  <div>
+                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Status</span>
+                    <span className="font-semibold text-[#090f24] capitalize">
+                      {loanDetail.status === "active" && loanDetail.payoutStatus === "completed"
+                        ? "Manual disbursement confirmed"
+                        : (loanDetail.payoutStatus || "pending").replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Reference</span>
+                    <span className="font-mono text-[11px] text-[#090f24] break-all">
+                      {loanDetail.payoutReference || loanDetail.payoutRef || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-gray-500 font-medium">Disbursement Mode</span>
+                    <span className="font-semibold text-[#090f24]">Manual (outside platform)</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-gray-500 font-medium">Net Amount to Transfer</span>
+                    <span className="font-extrabold text-emerald-700">
+                      {formatNaira(loanDetail.disbursementAmount ?? Math.max(0, (loanDetail.principalAmount || 0) - (loanDetail.interestAmount || 0)))}
+                    </span>
+                  </div>
                 </div>
+
+                {loanDetail.payoutFailureReason && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700">
+                    <span className="font-bold">Payout issue:</span> {loanDetail.payoutFailureReason}
+                  </div>
+                )}
 
                 {loanDetail.purpose && (
                   <div className="border-t border-[#dee3f9] pt-2 text-xs">
                     <span className="block text-[10px] text-gray-500 font-medium">Stated Purpose</span>
                     <p className="font-medium text-[#090f24] mt-0.5">{loanDetail.purpose}</p>
+                  </div>
+                )}
+
+                {/* Recovery & Collection Status */}
+                {(loanDetail.status === "defaulted_60_days" || loanDetail.status === "restricted_90_days" || loanDetail.status === "recovery_120_days") && (
+                  <div className="mt-4 p-4 rounded-2xl border border-amber-300 bg-amber-50/30 text-xs text-amber-800">
+                    <strong>Recovery Status:</strong> {loanDetail.recoveryStatus || "in_recovery"}
+                  </div>
+                )}
+
+                {loanDetail.status === "defaulted_60_days" && (
+                  <div className="mt-3 p-3 rounded-xl border border-amber-300 bg-amber-50 text-amber-600 text-[10px]">
+                    <strong>Guarantor Recovery:</strong> Tracking initiated at default_60_days. Each guarantor responsible for 25% of recovery obligation subject to guaranteed amount limits. No automatic deductions executed without authorized collection mechanism and mandate consent.
+                  </div>
+                )}
+
+                {loanDetail.status === "recovery_120_days" && (
+                  <div className="mt-3 p-3 rounded-xl border border-emerald-300 bg-emerald-50/30 text-emerald-700 text-[10px]">
+                    <strong>Recovery Active:</strong> Guarantor recovery obligations being tracked monthly. Borrower repayments reduce guarantor exposure. Collection attempts tracked with full audit trail.
                   </div>
                 )}
               </div>
@@ -476,9 +525,9 @@ export function AdminLoans() {
         <ConfirmDialog
           isOpen={!!approveTarget}
           onClose={() => setApproveTarget(null)}
-          title="Confirm Loan Approval & Disbursement"
-          description="Confirming approves this application and records the disbursement (ledger + schedule) to the member. The loan becomes active immediately."
-          confirmLabel={isApproving ? "Confirming..." : "Confirm Loan"}
+          title="Confirm Approval & Manual Disbursement"
+          description="Confirm only after you have manually transferred the net disbursement amount to the borrower's verified profile bank account. This action records admin-confirmed manual disbursement, activates the loan, and starts the repayment schedule. No automated bank transfer is performed by the platform."
+          confirmLabel={isApproving ? "Confirming..." : "Approve & Confirm Manual Disbursement"}
           onConfirm={confirmApprove}
           variant="success"
         />

@@ -10,8 +10,6 @@ import { BottomSheet } from "@/components/feedback/BottomSheet";
 import { useAsync } from "@/hooks/useAsync";
 import { getPendingWithdrawals, approveWithdrawal, rejectWithdrawal } from "@/services/adminService";
 import { formatNaira, formatDate } from "@/utils/format";
-import { ROUTES } from "@/constants/routes";
-
 export function WithdrawalApprovals() {
   const [page, setPage] = useState(1);
   const { data, isLoading, refetch } = useAsync(() => getPendingWithdrawals({ page, limit: 10 }), [page]);
@@ -65,51 +63,40 @@ export function WithdrawalApprovals() {
     }
   };
 
-  if (isLoading) return <div className="p-6 text-center">Loading...</div>;
-
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <TopHeader />
+    <div className="min-h-screen bg-[#dee3f9]/20 pb-24 font-sans text-[#090f24]">
+      <TopHeader variant="brand" />
 
-      <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      <div className="mx-auto mt-4 w-full max-w-7xl space-y-4 px-4 sm:px-6 pt-1">
+        <div
+          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           style={{ background: "linear-gradient(135deg, #5B76E1 0%, #131e49 50%, #090f24 100%)" }}
         >
           <div>
             <div className="flex items-center gap-1.5 mb-1 text-[#dee3f9]">
               <Landmark className="size-4 text-emerald-400" />
-              <span className="text-xs font-semibold">Withdrawal Approvals</span>
+              <span className="text-xs font-semibold">Payout Operations</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
-              Withdrawal Approvals
-            </h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">Withdrawal Approvals</h1>
             <p className="mt-0.5 text-xs text-[#dee3f9]/80">
               Review pending withdrawal requests and approve or reject payouts.
             </p>
           </div>
           <div className="shrink-0">
-            <span className="inline-block rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md px-3.5 py-1.5 text-xs font-extrabold text-[#dee3f9]">
-              {totalPages || 1} Page(s)
-            </span>
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={refetch} className="rounded-xl border-white/20 bg-white/10 text-white hover:bg-white/20">
+              Refresh
+            </Button>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[#090f24]">Withdrawal Approvals</h1>
-            <p className="text-sm text-gray-500">
-              Pending withdrawal requests awaiting administrator approval.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" icon={RefreshCw} onClick={refetch}>
-            Refresh
-          </Button>
-        </div>
+        {isLoading ? (
+          <Card className="rounded-2xl border border-[#bdc8f3]/40 bg-white p-8 text-center shadow-sm">
+            <p className="text-sm font-semibold text-text-secondary">Loading pending withdrawals...</p>
+          </Card>
+        ) : null}
 
-        {/* Withdrawals List */}
-        <div className="mt-6 space-y-4">
+        {!isLoading && (
+        <div className="space-y-4">
           {withdrawals.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-text-muted">No pending withdrawal requests.</p>
@@ -172,6 +159,7 @@ export function WithdrawalApprovals() {
             ))
           )}
         </div>
+        )}
 
         {(totalPages || 0) > 1 && (
           <div className="mt-6 flex items-center justify-center gap-3">
@@ -204,9 +192,10 @@ export function WithdrawalApprovals() {
         <ConfirmDialog
           isOpen={!!approvingId}
           onClose={() => setApprovingId(null)}
+          onConfirm={confirmApprove}
           title="Approve Withdrawal"
-          description="Are you sure you want to approve this withdrawal?"
-          confirmLabel="Approve & Pay Out"
+          description="Are you sure you want to approve this withdrawal request and initiate payout?"
+          confirmLabel={actionLoading ? "Approving..." : "Approve & Pay Out"}
           variant="success"
           isLoading={actionLoading}
         />

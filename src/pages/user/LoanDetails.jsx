@@ -67,6 +67,26 @@ export function LoanDetails() {
             Make Repayment
           </Button>
         )}
+
+        {/* Display payout/disbursement status for active/confirmed loans */}
+        {loan.status === "active" && (
+          <div className="mt-3 p-3 rounded-2xl border border-emerald-200 bg-emerald-50/30 text-xs text-emerald-700">
+            <strong>Disbursement Status:</strong> {loan.payoutStatus === "completed" ? "Manual disbursement confirmed" : loan.payoutStatus || "pending"}
+          </div>
+        )}
+
+        {/* Display disbursement reference and net amount */}
+        {loan.status === "active" && loan.payoutReference && (
+          <div className="mt-2">
+            <strong>Disbursement Reference:</strong> {loan.payoutReference}
+          </div>
+        )}
+
+        {loan.status === "active" && (
+          <div className="mt-2 small text-gray-500">
+            <strong>Net Amount Disbursed:</strong> {formatNaira(loan.disbursementAmount || Math.max(0, (loan.principalAmount || 0) - (loan.interestAmount || 0)))}
+          </div>
+        )}
       </div>
     </div>
   );

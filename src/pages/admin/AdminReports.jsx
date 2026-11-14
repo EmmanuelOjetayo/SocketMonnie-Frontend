@@ -1,6 +1,7 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { TopHeader } from "@/components/navigation/TopHeader";
-import { Download, FileSpreadsheet, FileText, Calendar, RefreshCw, Search, CheckCircle, Clock, TrendingUp, Users, Wallet, Building2, Bell, Sparkles } from "lucide-react";
+import { FileSpreadsheet, FileText, Calendar, RefreshCw, TrendingUp, Users, Wallet, Building2, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -9,7 +10,6 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { useAsync } from "@/hooks/useAsync";
 import { getAdminReports, downloadReportPdf, downloadReportExcel } from "@/services/adminService";
 import { formatNaira, formatDate } from "@/utils/format";
-import { ROUTES } from "@/constants/routes";
 
 export function AdminReports() {
   const [reportType, setReportType] = useState("overview");
@@ -70,41 +70,37 @@ export function AdminReports() {
     window.URL.revokeObjectURL(url);
   };
 
-  // PDF Export Handler
   async function handleDownloadPdf() {
     setIsPdfDownloading(true);
     try {
       const response = await downloadReportPdf({ type: reportType, month, year });
       const fileBlob = response?.data || response;
+      if (!(fileBlob instanceof Blob)) throw new Error("PDF export is not available right now.");
       const monthLabel = monthOptions.find((m) => m.value === Number(month))?.label;
       const fileName = `${reportType}-report-${monthLabel}-${year}.pdf`;
-      
       triggerFileDownload(fileBlob, fileName);
-      toast.success("PDF Report downloaded successfully");
+      toast.success("PDF report downloaded successfully");
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || error?.data?.message || "Failed to download PDF report"
-      );
+      const msg = error?.data?.message || error?.response?.data?.message || error?.message;
+      toast.error(msg || "PDF export is not available yet");
     } finally {
       setIsPdfDownloading(false);
     }
   }
 
-  // Excel Export Handler
   async function handleDownloadExcel() {
     setIsExcelDownloading(true);
     try {
       const response = await downloadReportExcel({ type: reportType, month, year });
       const fileBlob = response?.data || response;
+      if (!(fileBlob instanceof Blob)) throw new Error("Excel export is not available right now.");
       const monthLabel = monthOptions.find((m) => m.value === Number(month))?.label;
       const fileName = `${reportType}-report-${monthLabel}-${year}.xlsx`;
-
       triggerFileDownload(fileBlob, fileName);
-      toast.success("Excel Report downloaded successfully");
+      toast.success("Excel report downloaded successfully");
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message || error?.data?.message || "Failed to download Excel spreadsheet"
-      );
+      const msg = error?.data?.message || error?.response?.data?.message || error?.message;
+      toast.error(msg || "Excel export is not available yet");
     } finally {
       setIsExcelDownloading(false);
     }

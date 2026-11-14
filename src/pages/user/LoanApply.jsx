@@ -26,7 +26,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { loanApplicationSchema } from "@/utils/validators";
-import { applyForLoan, getLoanEligibility, getActiveLoan, cancelLoanApplication } from "@/services/loans";
+import { applyForLoan, getLoanEligibility, getActiveLoan, cancelLoanApplication, replaceGuarantor } from "@/services/loans";
 import { searchGuarantor } from "@/services/guarantor";
 import { getUserDraft, saveUserDraft, deleteUserDraft, acceptTerms } from "@/services/user";
 import { LOAN_DURATIONS, LOAN_TYPES, DISBURSEMENT_METHODS } from "@/constants/config";
@@ -74,6 +74,10 @@ export function LoanApply() {
  
   const { data: existingLoan, refetch: refetchExistingLoan } = useAsync(getActiveLoan, []);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [replacingGuarantorId, setReplacingGuarantorId] = useState(null);
+  const [replacementCode, setReplacementCode] = useState("");
+  const [replacementReason, setReplacementReason] = useState("");
+  const [isReplacing, setIsReplacing] = useState(false);
 
   // Workflow D: guaranteed exit from "waiting_guarantor" — withdraw the
   // application, which closes the pending guarantor requests server-side.
@@ -102,6 +106,34 @@ export function LoanApply() {
       );
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  const handleReplaceGuarantor = async (oldGuarantorUserId) => {
+    const loanId = submittedLoanData?._id || applicationLoanId;
+    const code = (replacementCode || "").trim().toUpperCase();
+    if (!loanId || !oldGuarantorUserId) return;
+    if (!code) {
+      toast.error("Enter the new guarantor's referral code.");
+      return;
+    }
+    setIsReplacing(true);
+    try {
+      const res = await replaceGuarantor(loanId, {
+        oldGuarantorUserId: String(oldGuarantorUserId),
+        newGuarantorReferralCode: code,
+        reason: replacementReason || "Replaced after rejection/expiry",
+      });
+      toast.success(res?.message || "Replacement guarantor invited.");
+      setSubmittedLoanData(res?.loan || null);
+      setReplacingGuarantorId(null);
+      setReplacementCode("");
+      setReplacementReason("");
+      await refetchExistingLoan();
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Could not replace guarantor.");
+    } finally {
+      setIsReplacing(false);
     }
   };
 
@@ -141,7 +173,7 @@ export function LoanApply() {
 
   const getGuarantorRequirement = (amount) => {
   if (!amount || amount <= 0) return "₦0";
-  const required = Number(amount) * 1.25;
+  const required = Number(amount) * 0.25;
   return formatNaira(required);
 };
 
@@ -793,12 +825,12 @@ if (res) {
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
                 <p className="font-bold">⚠️ Guarantor Requirement:</p>
-                <p>Each guarantor must have net savings of at least <strong>{getGuarantorRequirement(watchedAmount)}</strong> (125% of your loan amount).</p>
-                <p className="text-[10px] text-blue-600 mt-1">Guarantors must also have consistent savings history (minimum ₦5,000/month for 6 months).</p>
+                <p>Each guarantor must independently have sufficient savings/eligibility to guarantee at least <strong>{getGuarantorRequirement(watchedAmount)}</strong> (25% of the original loan principal). All four guarantors are required.</p>
+                <p className="text-[10px] text-blue-600 mt-1">Guarantors must also meet platform eligibility checks (including minimum savings and consistent savings history).</p>
               </div>
               <div>
                 <h2 className="text-base font-bold text-[#090F47]">3. Guarantor Verification</h2>
-                <p className="text-xs text-gray-500">Provide referral codes for three eligible cooperative guarantors</p>
+                <p className="text-xs text-gray-500">Provide referral codes for four eligible cooperative guarantors</p>
               </div>
 
               {[0, 1, 2,3].map((index) => (
@@ -1049,37 +1081,108 @@ if (res) {
     </h3>
 
     <div className="space-y-2">
-      {submittedLoanData.guarantors.map((guarantor, index) => {
+      {(submittedLoanData.guarantors || [])
+        .filter((g) => !g.isReplaced)
+        .map((guarantor, index) => {
         const status = guarantor.status || "pending";
+        const guarantorUserId = guarantor.userId?._id || guarantor.userId || guarantor.guarantorUserId;
+        const canReplace =
+          submittedLoanData.status === "waiting_guarantor" &&
+          ["rejected", "expired"].includes(status) &&
+          !guarantor.isReplaced &&
+          Boolean(guarantorUserId);
+        const isReplacingThis = String(replacingGuarantorId) === String(guarantorUserId);
 
         return (
           <div
             key={guarantor._id || index}
-            className="flex items-center justify-between rounded-xl bg-gray-50 p-3"
+            className="rounded-xl bg-gray-50 p-3 space-y-2"
           >
-            <div>
-              <p className="text-xs font-bold text-[#090F47]">
-                Guarantor {index + 1}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-[#090F47]">
+                  Guarantor {index + 1}
+                </p>
 
-              <p className="text-[10px] text-gray-500">
-                {guarantor.fullName ||
-                  guarantor.name ||
-                  "Guarantor"}
-              </p>
+                <p className="text-[10px] text-gray-500">
+                  {guarantor.fullName ||
+                    guarantor.name ||
+                    "Guarantor"}
+                </p>
+              </div>
+
+              <span
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
+                  status === "accepted"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : status === "rejected" || status === "expired"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {status}
+              </span>
             </div>
 
-            <span
-              className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                status === "accepted"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : status === "rejected"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-amber-100 text-amber-700"
-              }`}
-            >
-              {status}
-            </span>
+            {canReplace && (
+              <div className="space-y-2 border-t border-gray-200 pt-2">
+                {!isReplacingThis ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReplacingGuarantorId(guarantorUserId);
+                      setReplacementCode("");
+                      setReplacementReason("");
+                    }}
+                    className="w-full py-2 px-3 rounded-lg border border-[#090F47]/20 bg-white text-[#090F47] font-semibold text-[11px] hover:bg-[#090F47]/5 transition-colors"
+                  >
+                    Replace this guarantor
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={replacementCode}
+                      onChange={(e) => setReplacementCode(e.target.value.toUpperCase())}
+                      placeholder="New guarantor referral code"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#090F47] focus:outline-none focus:border-[#090F47]"
+                    />
+                    <input
+                      type="text"
+                      value={replacementReason}
+                      onChange={(e) => setReplacementReason(e.target.value)}
+                      placeholder="Reason (optional)"
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-[#090F47] focus:outline-none focus:border-[#090F47]"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReplaceGuarantor(guarantorUserId)}
+                        disabled={isReplacing}
+                        className="flex-1 py-2 px-3 rounded-lg bg-[#090F47] text-white font-semibold text-[11px] hover:bg-[#090F47]/90 disabled:opacity-60"
+                      >
+                        {isReplacing ? "Replacing..." : "Send replacement invite"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplacingGuarantorId(null);
+                          setReplacementCode("");
+                          setReplacementReason("");
+                        }}
+                        disabled={isReplacing}
+                        className="py-2 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 font-semibold text-[11px]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 leading-relaxed">
+                      The replacement guarantor must be eligible and will receive an invitation to accept. All four guarantors must be accepted before admin review can proceed.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

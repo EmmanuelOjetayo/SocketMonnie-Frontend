@@ -1,23 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import {
   Search,
   Eye,
   X,
   Check,
   Ban,
-  Users,
-  TrendingUp,
   FileText,
-  Building2,
-  Banknote,
-  Phone,
-  Mail,
-  Calendar,
-  ArrowUpRight,
-  ShieldCheck,
-  Award,
+  UserCheck,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   AlertTriangle,
 } from "lucide-react";
 import { KycDocumentPreview } from "@/components/modals/KycDocumentPreview";
@@ -29,13 +22,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { useAsync } from "@/hooks/useAsync";
-import { markAllNotificationsRead } from "@/services/notifications";
 import { getMembers, suspendMember, getMemberById, approveKYC, rejectKYC, activateMember } from "@/services/adminService";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { formatNaira, formatDate, getScoreRating } from "@/utils/format";
-import { ROUTES } from "@/constants/routes";
-import { cn } from "@/utils/cn";
 
 // Helper: compute score badge class without nested template literals
 function getScoreBadgeClass(score) {
@@ -54,16 +44,19 @@ function getScoreBadgeClass(score) {
 
 export function AdminMembers() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  const debouncedSearch = useRef(search).current;
-  // Re-derive on each render to pick up latest search value
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   // Data Fetching
   const { data, isLoading, refetch } = useAsync(
@@ -140,12 +133,12 @@ export function AdminMembers() {
     setIsSuspending(true);
     try {
       await suspendMember(userId, "Admin suspension");
-      console.log("Member suspended successfully");
+      toast.success("Member suspended successfully");
       setSuspendTarget(null);
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      console.error("Failed to suspend member:", error);
+      toast.error(error?.data?.message || error?.message || "Failed to suspend member");
     } finally {
       setIsSuspending(false);
     }
@@ -155,11 +148,11 @@ export function AdminMembers() {
     setIsActivating(true);
     try {
       await activateMember(userId);
-      console.log("Member activated successfully");
+      toast.success("Member activated successfully");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      console.error("Failed to activate member:", error);
+      toast.error(error?.data?.message || error?.message || "Failed to activate member");
     } finally {
       setIsActivating(false);
     }
@@ -169,11 +162,11 @@ export function AdminMembers() {
     setIsApprovingKyc(true);
     try {
       await approveKYC(userId);
-      console.log("KYC approved");
+      toast.success("KYC approved");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      console.error("Failed to approve KYC:", error);
+      toast.error(error?.data?.message || error?.message || "Failed to approve KYC");
     } finally {
       setIsApprovingKyc(false);
     }
@@ -181,19 +174,19 @@ export function AdminMembers() {
 
   async function handleKycReject(userId) {
     if (!kycRejectReason.trim()) {
-      console.error("Rejection reason is required");
+      toast.error("Please provide a rejection reason");
       return;
     }
     setIsRejectingKyc(true);
     try {
-      await rejectKYC(userId, kycRejectReason);
-      console.log("KYC rejected");
+      await rejectKYC(userId, kycRejectReason.trim());
+      toast.success("KYC rejected");
       setKycRejectTarget(null);
       setKycRejectReason("");
       await refetch();
       if (selectedMember) await refreshCurrentDetail(selectedMember);
     } catch (error) {
-      console.error("Failed to reject KYC:", error);
+      toast.error(error?.data?.message || error?.message || "Failed to reject KYC");
     } finally {
       setIsRejectingKyc(false);
     }
@@ -321,7 +314,7 @@ export function AdminMembers() {
                         </td>
                         <td className="px-4 py-3">
                           {/* Score & Rating Label */}
-                          <span className={getScoreBadgeClass(m.socketScore || 0)}>{m.socketScore || 0} — {rating.label}</span>
+                          <span className={getScoreBadgeClass(m.socketScore || 0)}>{m.socketScore || 0} • {rating.label}</span>
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={kycBadgeVariant(m.kycStatus)}>
@@ -488,7 +481,7 @@ export function AdminMembers() {
                         <div className="font-bold text-[#090f24]">{bankInfo.accountName}</div>
                         <div className="text-xs font-medium text-gray-500">BVN</div>
                         <div className="font-bold text-[#090f24]">
-                          {member.bvn ? `••••${member.bvn.slice(-4)}` : "Not Provided"}
+                          {member.bvn ? `****${member.bvn.slice(-4)}` : "Not Provided"}
                         </div>
                       </div>
                     </div>
