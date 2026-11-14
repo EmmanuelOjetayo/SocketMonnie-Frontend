@@ -146,4 +146,27 @@ export async function payWithFlutterwave({
 export const isPaymentWindowClosed = (err) =>
   err?.message === "PAYMENT_WINDOW_CLOSED";
 
+/**
+ * Flutterwave reports successful outcomes under different status values
+ * depending on the flow: the checkout callback / charge events commonly use
+ * "successful", while some providers/flows (notably certain bank-transfer and
+ * sandbox outcomes) return "completed" alongside an approval signal such as
+ * charge_response_code "00" / "Approved Successful".
+ *
+ * A payment is successful when EITHER:
+ *   - the provider approved the charge (charge_response_code "00"/"000"), OR
+ *   - the transaction status is a known successful value ("successful" | "completed").
+ *
+ * This is deliberately tolerant of the documented + observed provider payloads,
+ * while the backend remains the source of truth for final settlement.
+ */
+export const FLW_SUCCESS_STATUSES = ["successful", "completed"];
+
+export const isSuccessfulFlutterwaveResponse = (response) => {
+  const status = String(response?.status || "").toLowerCase();
+  const chargeCode = String(response?.charge_response_code || response?.chargeResponseCode || "").trim();
+  const approved = chargeCode === "00" || chargeCode === "000";
+  return Boolean(approved) || FLW_SUCCESS_STATUSES.includes(status);
+};
+
 export default payWithFlutterwave;

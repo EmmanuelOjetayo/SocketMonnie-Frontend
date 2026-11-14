@@ -17,7 +17,7 @@ import {
 
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
-import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { payWithFlutterwave, isPaymentWindowClosed, isSuccessfulFlutterwaveResponse } from "@/utils/flutterwaveCheckout";
 import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MONTHLY_MINUTES_AMOUNT = 500;
@@ -205,7 +205,7 @@ export function Minutes() {
       const transactionId =
         response?.transaction_id || response?.id || null;
 
-      if (response?.status && response.status !== "successful") {
+      if (response && !isSuccessfulFlutterwaveResponse(response)) {
         setIsSubmitting(false);
         toast.error(`Payment ${response.status}. Please try again.`);
         /*

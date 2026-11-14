@@ -7,7 +7,7 @@ import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { useNavigate } from "react-router-dom";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
-import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { payWithFlutterwave, isPaymentWindowClosed, isSuccessfulFlutterwaveResponse } from "@/utils/flutterwaveCheckout";
 import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
@@ -58,7 +58,7 @@ export function MembershipFee() {
       const responseReference = response?.tx_ref || response?.reference || reference;
       checkoutTxId = response?.transaction_id || response?.id || null;
 
-      if (response?.status && response?.status !== "successful") {
+      if (response && !isSuccessfulFlutterwaveResponse(response)) {
         toast.error("Payment " + (response?.status) + ". Please try again.");
         setIsSubmitting(false);
         /*

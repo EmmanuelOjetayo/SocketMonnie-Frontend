@@ -9,7 +9,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { getActiveLoan, getRepaymentSchedule } from "@/services/loans";
 import { initiateLoanRepayment, verifyLoanRepayment } from "@/services/payments";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
-import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { payWithFlutterwave, isPaymentWindowClosed, isSuccessfulFlutterwaveResponse } from "@/utils/flutterwaveCheckout";
 import { settleAndNavigate } from "@/utils/paymentResultNav";
 import { formatNaira, formatDate } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
@@ -75,7 +75,7 @@ export function LoanRepay() {
 
       console.log("[LOAN REPAY] FLW RESPONSE:", response);
 
-      if (response?.status && response.status !== "successful") {
+      if (response && !isSuccessfulFlutterwaveResponse(response)) {
         setIsSubmitting(false);
         toast.error(`Payment ${response.status}. Please try again.`);
         settleAndNavigate({

@@ -21,7 +21,7 @@ import { MIN_MONTHLY_SAVINGS } from "@/constants/config";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
-import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
+import { payWithFlutterwave, isPaymentWindowClosed, isSuccessfulFlutterwaveResponse } from "@/utils/flutterwaveCheckout";
 import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
@@ -283,7 +283,7 @@ export function SavingsDeposit() {
 
       console.log("[DEPOSIT] FLW RESPONSE:", flwResponse);
 
-      if (flwResponse?.status && flwResponse.status !== "successful") {
+      if (flwResponse && !isSuccessfulFlutterwaveResponse(flwResponse)) {
         // The checkout callback reports a failed attempt. The failed page
         // re-verifies nothing — it is informational; the backend record stays
         // pending until the provider confirms the final outcome.
