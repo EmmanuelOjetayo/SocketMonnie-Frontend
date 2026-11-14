@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { ArrowLeft, Clock3, XCircle, CheckCircle2 } from "lucide-react";
 
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { ReceiptSheet } from "@/components/receipt/ReceiptSheet";
 import { ReceiptActions } from "@/components/receipt/ReceiptActions";
+import SuccessBadge from "@/components/success/SuccessBadge";
 import { useAsync } from "@/hooks/useAsync";
 import { getTransaction } from "@/services/transactions";
 import { buildReceiptData } from "@/utils/receiptData";
@@ -27,28 +27,30 @@ import { cn } from "@/utils/cn";
 const STATUS_THEME = {
   successful: {
     pill: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    Icon: CheckCircle2,
+    tone: "success",
     accent: "text-emerald-600",
     label: "Successful",
+    Icon: CheckCircle2,
   },
   pending: {
     pill: "bg-amber-50 text-amber-700 border-amber-100",
-    Icon: Clock3,
+    tone: "pending",
     accent: "text-amber-600",
     label: "Pending",
+    Icon: Clock3,
   },
   failed: {
     pill: "bg-rose-50 text-rose-700 border-rose-100",
-    Icon: XCircle,
+    tone: "failed",
     accent: "text-rose-600",
     label: "Failed",
+    Icon: XCircle,
   },
 };
 
 export function TransactionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const { data, isLoading, error } = useAsync(
     () => getTransaction(id),
@@ -111,6 +113,10 @@ export function TransactionDetail() {
             {/* HERO */}
             <section className="rounded-3xl border border-[#bdc8f3]/40 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-center">
+                <SuccessBadge tone={theme.tone} size={96} />
+              </div>
+
+              <div className="mt-2 flex items-center justify-center">
                 <span
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide",
@@ -178,21 +184,12 @@ export function TransactionDetail() {
             {/* ACTIONS */}
             {receipt && (
               <section className="mt-3">
-                <ReceiptActions
-                  data={receipt}
-                  onViewReceipt={() => setIsReceiptOpen(true)}
-                />
+                <ReceiptActions data={receipt} showView={false} layout="row" />
               </section>
             )}
           </>
         )}
       </div>
-
-      <ReceiptSheet
-        isOpen={isReceiptOpen}
-        onClose={() => setIsReceiptOpen(false)}
-        data={receipt}
-      />
     </div>
   );
 }
