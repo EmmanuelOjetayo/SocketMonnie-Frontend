@@ -10,7 +10,7 @@ import { getActiveLoan, getRepaymentSchedule } from "@/services/loans";
 import { initiateLoanRepayment, verifyLoanRepayment } from "@/services/payments";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
-import { rememberPaymentRef } from "@/utils/paymentRef";
+import { settleAndNavigate } from "@/utils/paymentResultNav";
 import { formatNaira, formatDate } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 
@@ -47,6 +47,8 @@ export function LoanRepay() {
     if (!paymentAmount || paymentAmount <= 0) return toast.error("Please enter a valid repayment amount.");
     if (paymentAmount > Number(loan.remainingBalance || 0)) return toast.error(`Amount exceeds remaining balance: ${formatNaira(loan.remainingBalance)}`);
     setIsSubmitting(true);
+    let checkoutRef = null;
+    let checkoutTxId = null;
     try {
       const result = await initiateLoanRepayment({ loanId: loan._id, paymentAmount });
       if (!result?.success) throw new Error(result?.message || "Failed to initialize repayment.");
@@ -55,6 +57,7 @@ export function LoanRepay() {
       const publicKey = payload.publicKey || payload.public_key;
       const reference = payload.reference || payload.tx_ref || payload.txRef;
       if (!publicKey || !reference) throw new Error("Unable to start Flutterwave checkout.");
+      checkoutRef = reference;
 
       // Open Flutterwave Window Checkout (Inline v3).
       const response = await payWithFlutterwave({
@@ -71,52 +74,83 @@ export function LoanRepay() {
       });
 
       if (response?.status && response.status !== "successful") {
+        setIsSubmitting(false);
         toast.error(`Payment ${response.status}. Please try again.`);
+        settleAndNavigate({
+          navigate,
+          route: ROUTES.LOAN_COMPLETE_SUCCESS,
+          reference: response?.tx_ref || response?.reference || reference,
+          verify: () => Promise.resolve(),
+        });
         return;
       }
 
       const responseReference = response?.tx_ref || response?.reference || reference;
       const transactionId = response?.transaction_id || response?.id || null;
+      checkoutTxId = transactionId;
 
-      try {
-      // Backend performs authoritative verification — never trust frontend.
-      const verification = await verifyLoanRepayment({
-        loanId: loan._id,
+      /*
+       * The checkout callback is only a navigation hint — the webhook (or the
+       * background verify fired below) settles the repayment server-side, and
+       * CompleteLoanRepayment polls GET /api/payments/status/:reference — the
+       * backend is the source of truth. Navigate immediately; never block the
+       * customer on a synchronous verify round-trip.
+       */
+      toast.success("Repayment received — confirming your loan repayment…");
+      setIsSubmitting(false);
+      settleAndNavigate({
+        navigate,
+        route: ROUTES.LOAN_COMPLETE_SUCCESS,
         reference: responseReference,
-        tx_ref: responseReference,
-        transaction_id: transactionId,
-        transactionId: transactionId,
-      });
-
-      if (!verification?.success) {
-        return toast.error(
-          verification?.message || "Verification failed."
-        );
-      }
-
-      toast.success("Loan repayment successful.");
-
-      rememberPaymentRef(responseReference);
-      navigate(ROUTES.LOAN_COMPLETE_SUCCESS, {
+        verify: () =>
+          verifyLoanRepayment({
+            loanId: loan._id,
+            reference: responseReference,
+            tx_ref: responseReference,
+            transaction_id: transactionId,
+            transactionId: transactionId,
+          }),
         state: {
           amount: paymentAmount,
           method: selectedMethod,
           reference: responseReference,
-          remainingBalance: verification.loan?.remainingBalance,
+          remainingBalance: null,
           date: new Date().toISOString(),
         },
       });
-      } catch (error) {
-        console.error("Loan repayment verification error:", error);
-        toast.error(
-          error?.data?.message ||
-          error?.message ||
-          "Verification failed."
-        );
-      }
     } catch (error) {
       if (isPaymentWindowClosed(error)) {
-        toast.error("Payment window closed.");
+        /*
+         * The customer closed the checkout window — the normal path with bank
+         * transfer (they pay from their banking app, then close the modal).
+         * The webhook settles the repayment server-side. Show the result page,
+         * which polls the backend and converges on the real outcome.
+         */
+        toast(
+          "If you completed the repayment, this page will confirm it automatically."
+        );
+        setIsSubmitting(false);
+        settleAndNavigate({
+          navigate,
+          route: ROUTES.LOAN_COMPLETE_SUCCESS,
+          reference: checkoutRef,
+          verify: () =>
+            verifyLoanRepayment({
+              loanId: loan._id,
+              reference: checkoutRef,
+              tx_ref: checkoutRef,
+              transaction_id: checkoutTxId,
+              transactionId: checkoutTxId,
+            }),
+          state: {
+            amount: paymentAmount,
+            method: selectedMethod,
+            reference: checkoutRef,
+            remainingBalance: null,
+            date: new Date().toISOString(),
+          },
+        });
+        return;
       } else {
         toast.error(error?.data?.message || error?.message || "Loan repayment failed.");
       }

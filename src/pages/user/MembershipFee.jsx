@@ -8,7 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { useNavigate } from "react-router-dom";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
-import { rememberPaymentRef } from "@/utils/paymentRef";
+import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
 
@@ -21,6 +21,8 @@ export function MembershipFee() {
 
   async function handlePay() {
     setIsSubmitting(true);
+    let checkoutRef = null;
+    let checkoutTxId = null;
     try {
       const res = await initializeMembershipFee();
       const payload = res?.data?.data || res?.data || res;
@@ -36,7 +38,8 @@ export function MembershipFee() {
         return;
       }
 
-      // Open Flutterwave Window Checkout (Inline v3).
+      checkoutRef = reference;
+
       const response = await payWithFlutterwave({
         publicKey,
         tx_ref: reference,
@@ -50,50 +53,88 @@ export function MembershipFee() {
         subaccount_id: payload?.subaccount_id,
       });
 
-      if (response?.status && response.status !== "successful") {
-        toast.error(`Payment ${response.status}. Please try again.`);
+      const responseReference = response?.tx_ref || response?.reference || reference;
+      checkoutTxId = response?.transaction_id || response?.id || null;
+
+      if (response?.status && response?.status !== "successful") {
+        toast.error("Payment " + (response?.status) + ". Please try again.");
         setIsSubmitting(false);
+        /*
+         * Show the result page regardless: the backend polls for the final
+         * outcome and will render the failure state.
+         */
+        settleAndNavigate({
+          navigate,
+          route: ROUTES.MEMBERSHIP_SUCCESS,
+          reference: checkoutRef,
+          verify: () =>
+            verifyMembershipFee({
+              reference: checkoutRef,
+              tx_ref: checkoutRef,
+              transaction_id: checkoutTxId,
+            }),
+          state: {
+            amount: totalPayable,
+            reference: checkoutRef,
+          },
+        });
         return;
       }
 
-      const responseReference = response?.tx_ref || response?.reference || reference;
-      const transactionId = response?.transaction_id || response?.id || null;
-
-      // Backend performs authoritative verification — never trust frontend.
-      try {
-        const verifyRes = await verifyMembershipFee({
-          reference: responseReference,
-          tx_ref: responseReference,
-          transaction_id: transactionId,
-        });
-
-        if (verifyRes?.success) {
-          toast.success("Membership confirmed. You can now access savings and loans.");
-          rememberPaymentRef(responseReference);
-          navigate(ROUTES.MEMBERSHIP_SUCCESS, {
-            state: {
-              amount: totalPayable,
-              reference: responseReference,
-            },
-          });
-        } else {
-          toast.error(verifyRes?.message || "Membership verification failed.");
-        }
-      } catch (verifyError) {
-        toast.error(verifyError?.data?.message || verifyError?.message || "Verification failed.");
-      } finally {
-        setIsSubmitting(false);
-      }
+      /*
+       * The checkout callback is only a navigation hint. The webhook (or the
+       * background verify fired below) marks the fee paid server-side, and
+       * MembershipSuccessPage polls GET /api/payments/status/:reference — the
+       * backend is the source of truth. Navigate immediately.
+       */
+      toast.success("Payment received - confirming your membership...");
+      setIsSubmitting(false);
+      settleAndNavigate({
+        navigate,
+        route: ROUTES.MEMBERSHIP_SUCCESS,
+        reference: checkoutRef,
+        verify: () =>
+          verifyMembershipFee({
+            reference: checkoutRef,
+            tx_ref: checkoutRef,
+            transaction_id: checkoutTxId,
+          }),
+        state: {
+          amount: totalPayable,
+          reference: checkoutRef,
+        },
+      });
     } catch (error) {
       if (isPaymentWindowClosed(error)) {
-        toast.error("Payment window closed. Please complete your membership fee to continue.");
+        /*
+         * The customer closed the checkout window — the normal path with bank
+         * transfer (they pay from their banking app, then close the modal).
+         * The webhook settles the payment server-side. Show the result page,
+         * which polls the backend and converges on the real outcome.
+         */
+        toast("If you completed the payment, this page will confirm it automatically.");
+        setIsSubmitting(false);
+        settleAndNavigate({
+          navigate,
+          route: ROUTES.MEMBERSHIP_SUCCESS,
+          reference: checkoutRef,
+          verify: () =>
+            verifyMembershipFee({
+              reference: checkoutRef,
+              tx_ref: checkoutRef,
+              transaction_id: null,
+            }),
+          state: {
+            amount: totalPayable,
+            reference: checkoutRef,
+          },
+        });
       } else {
-        toast.error(error?.data?.message || error?.message || "Could not start payment — please try again");
+        toast.error(error?.data?.message || error?.message || "Could not start payment - please try again");
       }
       setIsSubmitting(false);
     }
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F4F6F9] to-[#dee3f9]/20 pb-16 font-sans text-[#090f24]">
       {/* 1. Compact Header */}

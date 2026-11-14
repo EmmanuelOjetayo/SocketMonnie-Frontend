@@ -18,7 +18,7 @@ import {
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
-import { rememberPaymentRef } from "@/utils/paymentRef";
+import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MONTHLY_MINUTES_AMOUNT = 500;
 
@@ -167,19 +167,36 @@ export function Minutes() {
         });
       } catch (checkoutError) {
         if (isPaymentWindowClosed(checkoutError)) {
-          setIsSubmitting(false);
-          toast.error(
-            "Payment window closed. Your outstanding SocketMinutes contributions remain unpaid."
+          /*
+           * The customer closed the checkout window. With bank transfer this is
+           * the NORMAL path: they switch to their banking app, complete the
+           * transfer, and close the modal — the callback never fires, but the
+           * webhook settles the payment server-side. Never trap the user on
+           * the payment page: show the result page, which polls the backend
+           * (source of truth) and converges on the real outcome.
+           */
+          toast(
+            "If you completed the payment, this page will confirm it automatically."
           );
+          setIsSubmitting(false);
+          settleAndNavigate({
+            navigate,
+            route: ROUTES.MINUTES_SUCCESS,
+            reference,
+            verify: () =>
+              verifyMinutesContribution({
+                reference,
+                tx_ref: reference,
+                transaction_id: null,
+              }),
+            state: {
+              amount: totalPayable,
+              reference,
+            },
+          });
           return;
         }
         throw checkoutError;
-      }
-
-      if (response?.status && response.status !== "successful") {
-        setIsSubmitting(false);
-        toast.error(`Payment ${response.status}. Please try again.`);
-        return;
       }
 
       const paymentReference =
@@ -187,49 +204,59 @@ export function Minutes() {
       const transactionId =
         response?.transaction_id || response?.id || null;
 
-      // Backend performs authoritative verification — never trust frontend.
-      try {
-        const verifyResponse = await verifyMinutesContribution({
-          reference: paymentReference,
-          tx_ref: paymentReference,
-          transaction_id: transactionId,
-        });
-        if (
-          verifyResponse?.reference &&
-          verifyResponse?.transactionId &&
-          Number(verifyResponse?.monthsSettled) > 0
-        ) {
-          toast.success(
-            "Your SocketMinutes contributions have been cleared successfully!"
-          );
-          rememberPaymentRef(paymentReference);
-          navigate(ROUTES.MINUTES_SUCCESS, {
-            state: {
-              amount: totalPayable,
-              reference: paymentReference,
-              transactionId,
-              monthsSettled: Number(verifyResponse?.monthsSettled) || 1,
-            },
-          });
-        } else {
-          console.error(
-            "Unexpected verification response:",
-            verifyResponse
-          );
-
-          toast.error("Minutes payment verification failed.");
-        }
-      } catch (error) {
-        console.error("Minutes verification error:", error);
-
-        toast.error(
-          error?.data?.message ||
-            error?.message ||
-            "Unable to verify SocketMinutes payment."
-        );
-      } finally {
+      if (response?.status && response.status !== "successful") {
         setIsSubmitting(false);
+        toast.error(`Payment ${response.status}. Please try again.`);
+        /*
+         * A failed callback is an authoritative outcome: route through the
+         * result page so the backend-confirmed failure state is displayed.
+         */
+        settleAndNavigate({
+          navigate,
+          route: ROUTES.MINUTES_SUCCESS,
+          reference: paymentReference,
+          verify: () =>
+            verifyMinutesContribution({
+              reference: paymentReference,
+              tx_ref: paymentReference,
+              transaction_id: transactionId,
+            }),
+          state: {
+            amount: totalPayable,
+            reference: paymentReference,
+            transactionId,
+          },
+        });
+        return;
       }
+
+      /*
+       * The checkout callback is only a navigation hint — the webhook (or the
+       * background verify fired below) settles the payment server-side, and
+       * the success page polls GET /api/payments/status/:reference to display
+       * the authoritative outcome. Navigate immediately; never block the
+       * customer on a synchronous verify round-trip.
+       */
+      toast.success(
+        "Payment received — confirming your SocketMinutes contribution…"
+      );
+      setIsSubmitting(false);
+      settleAndNavigate({
+        navigate,
+        route: ROUTES.MINUTES_SUCCESS,
+        reference: paymentReference,
+        verify: () =>
+          verifyMinutesContribution({
+            reference: paymentReference,
+            tx_ref: paymentReference,
+            transaction_id: transactionId,
+          }),
+        state: {
+          amount: totalPayable,
+          reference: paymentReference,
+          transactionId,
+        },
+      });
     } catch (error) {
       console.error(
         "Minutes initialization error:",

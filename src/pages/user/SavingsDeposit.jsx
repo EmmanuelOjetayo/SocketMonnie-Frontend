@@ -22,7 +22,7 @@ import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed } from "@/utils/flutterwaveCheckout";
-import { rememberPaymentRef } from "@/utils/paymentRef";
+import { settleAndNavigate } from "@/utils/paymentResultNav";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
 const QUICK_AMOUNTS = [5000, 10000, 15000, 20000];
@@ -223,6 +223,11 @@ export function SavingsDeposit() {
       totalPayable,
     } = calculateFlutterwaveFee(numAmount);
 
+    // Server-generated checkout reference — kept outside the try block so the
+    // window-closed handler below can still route to the result page even if
+    // the failure happened after initialization.
+    let paymentRef = null;
+
     try {
       const response =
         await initiateDeposit(
@@ -244,6 +249,7 @@ export function SavingsDeposit() {
 
       const payment =
         response.data;
+      paymentRef = payment?.reference || payment?.tx_ref || null;
 
       if (
         !payment?.reference ||
@@ -274,8 +280,12 @@ export function SavingsDeposit() {
       });
 
       if (flwResponse?.status && flwResponse.status !== "successful") {
-        toast.error(`Payment ${flwResponse.status}. Please try again.`);
+        // The checkout callback reports a failed attempt. The failed page
+        // re-verifies nothing — it is informational; the backend record stays
+        // pending until the provider confirms the final outcome.
         setIsSubmitting(false);
+        toast.error(`Payment ${flwResponse.status}. Please try again.`);
+        navigate(`${ROUTES.PAYMENTS_SAVINGS_FAILED}?${params.join("&")}`);
         return;
       }
 
@@ -294,39 +304,61 @@ export function SavingsDeposit() {
         "method=bank_transfer",
       ];
 
-      // Backend performs authoritative verification — never trust frontend.
-      try {
-        const verifyResponse = await verifyDeposit({
-          reference,
-          tx_ref: reference,
-          transaction_id: transactionId,
-        });
-
-        if (verifyResponse.success) {
-          toast.success("Deposit successful!");
-          rememberPaymentRef(reference);
-          navigate(`${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`);
-        } else {
-          toast.error(
-            verifyResponse.message || "Payment verification failed."
-          );
-          navigate(`${ROUTES.PAYMENTS_SAVINGS_FAILED}?${params.join("&")}`);
-        }
-      } catch (error) {
-        // A verification error (timeout, FLW still processing, network blip)
-        // must NOT be displayed as a false failure. Go to the confirmation
-        // page, which polls the backend and only fails when the backend
-        // establishes the payment truly failed. The webhook can still settle
-        // this deposit server-side even if the user closes the browser.
-        console.error("Verification Error:", error);
-        rememberPaymentRef(reference);
-        navigate(`${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`);
-      } finally {
-        setIsSubmitting(false);
-      }
+      /*
+       * The checkout callback is only a navigation hint. The webhook (or the
+       * background verify fired below) settles the deposit server-side, and
+       * DepositSuccess polls GET /api/payments/status/:reference — the backend
+       * is the source of truth. Navigate immediately; the callback response is
+       * never displayed as proof of payment.
+       */
+      toast.success("Payment received — confirming your deposit…");
+      setIsSubmitting(false);
+      settleAndNavigate({
+        navigate,
+        route: `${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`,
+        reference,
+        verify: () =>
+          verifyDeposit({
+            reference,
+            tx_ref: reference,
+            transaction_id: transactionId,
+          }),
+      });
     } catch (error) {
       if (isPaymentWindowClosed(error)) {
-        toast.error("Payment window closed.");
+        /*
+         * The customer closed the checkout window — the normal path with bank
+         * transfer (they pay from their banking app, then close the modal).
+         * The webhook settles the payment server-side. Show the result page,
+         * which polls the backend and converges on the real outcome.
+         */
+        if (!paymentRef) {
+          // Window closed before initialization completed — nothing to confirm.
+          toast.error("Payment window closed before it could start.");
+          setIsSubmitting(false);
+          return;
+        }
+        toast(
+          "If you completed the payment, this page will confirm it automatically."
+        );
+        const params = [
+          `tx_ref=${encodeURIComponent(paymentRef || "")}`,
+          `reference=${encodeURIComponent(paymentRef || "")}`,
+          `amount=${encodeURIComponent(amount || "")}`,
+          "method=bank_transfer",
+        ];
+        setIsSubmitting(false);
+        settleAndNavigate({
+          navigate,
+          route: `${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`,
+          reference: paymentRef,
+          verify: () =>
+            verifyDeposit({
+              reference: paymentRef,
+              tx_ref: paymentRef,
+              transaction_id: null,
+            }),
+        });
       } else {
         console.error("Deposit Error:", error);
         toast.error(
