@@ -37,7 +37,7 @@ export function ProgressRing({ score = 0, size = 132, strokeWidth = 12 }) {
           style={{ transition: "stroke-dashoffset 0.6s ease" }}
         />
       </svg>
-      <div className="absolute flex flex-col items-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         <span className="text-3xl font-extrabold text-text-primary">{score}</span>
         <span className="text-[11px] font-semibold text-text-secondary">{label}</span>
       </div>
