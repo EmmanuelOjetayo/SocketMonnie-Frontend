@@ -81,6 +81,8 @@ export function Profile() {
   // --- Form States ---
   // 1. Personal Info
   const [personalInfo, setPersonalInfo] = useState({
+    fullName: "",
+    phone: "",
     dateOfBirth: "",
     gender: "",
     address: "",
@@ -139,6 +141,8 @@ export function Profile() {
   useEffect(() => {
     if (user) {
       setPersonalInfo({
+        fullName: user.fullName || "",
+        phone: user.phone || "",
         dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split("T")[0] : "",
         gender: user.gender || "",
         address: user.address || "",
@@ -194,9 +198,23 @@ export function Profile() {
 
   // --- API Handlers ---
   async function handleSavePersonalInfo() {
+    const fullName = String(personalInfo.fullName || "").trim();
+    const phone = String(personalInfo.phone || "").trim();
+
+    if (!fullName) {
+      toast.error("Full name is required");
+      return;
+    }
+    if (phone && phone.replace(/\D/g, "").length < 10) {
+      toast.error("Please enter a valid phone number");
+      return;
+    }
+
     setIsSavingInfo(true);
     try {
       const payload = {};
+      if (fullName) payload.fullName = fullName;
+      if (phone) payload.phone = phone;
       if (personalInfo.dateOfBirth) payload.dateOfBirth = personalInfo.dateOfBirth;
       if (personalInfo.gender) payload.gender = personalInfo.gender;
       if (personalInfo.address) payload.address = personalInfo.address;
@@ -208,6 +226,14 @@ export function Profile() {
 
       const res = await updatePersonalInfo(payload);
       if (res?.success) {
+        const updatedUser = res?.user || res?.data?.user;
+        if (updatedUser) {
+          setUser((prev) => normalizeUser({ ...(prev || {}), ...updatedUser }));
+        } else {
+          setUser((prev) =>
+            prev ? normalizeUser({ ...prev, fullName, phone: phone || prev.phone }) : prev
+          );
+        }
         toast.success(res.message || "Personal info updated successfully!");
         setActiveModal(null);
       } else {
@@ -664,9 +690,25 @@ export function Profile() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <Input label="Full Name" value={user?.fullName || ""} disabled className="bg-gray-100 cursor-not-allowed" />
-              <Input label="Email" value={user?.email || ""} disabled className="bg-gray-100 cursor-not-allowed" />
-              <Input label="Phone" value={user?.phone || ""} disabled className="bg-gray-100 cursor-not-allowed" />
+              <Input
+                label="Full Name"
+                value={personalInfo.fullName}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
+                placeholder="Enter your full name"
+              />
+              <Input
+                label="Email"
+                value={user?.email || ""}
+                disabled
+                className="bg-gray-100 cursor-not-allowed"
+              />
+              <Input
+                label="Phone Number"
+                value={personalInfo.phone}
+                onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                placeholder="Enter your phone number"
+                inputMode="tel"
+              />
 
               <Input
                 label="Date of Birth"
