@@ -2,7 +2,7 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatNaira, formatDate } from "@/utils/format";
 import { cn } from "@/utils/cn";
 
-export function TransactionRow({ label, amount, direction, date }) {
+export function TransactionRow({ label, amount, direction, date, time }) {
   const isCredit = direction === "credit";
   return (
     <div className="flex items-center gap-3 py-3">
@@ -16,7 +16,7 @@ export function TransactionRow({ label, amount, direction, date }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-text-primary">{label}</p>
-        <p className="text-xs text-text-muted">{formatDate(date)}</p>
+        <p className="text-xs text-text-muted">{time || formatDate(date)}</p>
       </div>
       <p className={cn("shrink-0 text-sm font-bold", isCredit ? "text-success-600" : "text-danger-500")}>
         {isCredit ? "+" : "-"}

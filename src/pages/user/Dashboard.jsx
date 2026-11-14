@@ -25,7 +25,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { getSavingsSummary, getSavingsHistory } from "@/services/savings";
 import { getTransactions } from "@/services/transactions";
 import { getLoanEligibility, getActiveLoan } from "@/services/loans";
-import { formatNaira, getScoreRating } from "@/utils/format";
+import { formatNaira, formatDate, getScoreRating } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { getNotifications } from "@/services/notifications";
 import { getPendingGuarantorRequests } from "@/services/guarantor";
@@ -126,11 +126,23 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
 
   // Unified transactions for the Recent Transactions card — one list across
   // savings, minutes, membership and loan payments.
+  // Capped to the 5 most recent transactions for the dashboard preview.
   const recentTxList = useMemo(() => {
-    if (Array.isArray(txRes?.transactions)) return txRes.transactions;
-    if (Array.isArray(txRes?.data?.transactions)) return txRes.data.transactions;
-    if (Array.isArray(txRes?.data)) return txRes.data;
-    return [];
+    const list = Array.isArray(txRes?.transactions)
+      ? txRes.transactions
+      : Array.isArray(txRes?.data?.transactions)
+      ? txRes.data.transactions
+      : Array.isArray(txRes?.data)
+      ? txRes.data
+      : [];
+
+    const sorted = [...list].sort((a, b) => {
+      const ta = new Date(a?.date || a?.createdAt || a?.paidAt || 0).getTime();
+      const tb = new Date(b?.date || b?.createdAt || b?.paidAt || 0).getTime();
+      return tb - ta;
+    });
+
+    return sorted.slice(0, 5);
   }, [txRes]);
 
   const totalSaved = summary?.totalSaved ?? 0;
@@ -286,6 +298,7 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
               {recentTxList.map((tx, idx) => {
                 const rawDate = tx.date || tx.createdAt || tx.paidAt;
                 const formattedDate = rawDate ? String(rawDate).split("T")[0] : "";
+                const timeLabel = rawDate ? formatDate(new Date(rawDate), "h:mm a") : "";
 
                 return (
                   <TransactionRow
@@ -294,6 +307,7 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
                     amount={tx.direction === "debit" ? -Math.abs(tx.amount) : Math.abs(tx.amount)}
                     direction={tx.direction || "credit"}
                     date={formattedDate}
+                    time={timeLabel}
                   />
                 );
               })}
@@ -375,9 +389,11 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
               </h4>
             </div>
 
-            {/* Custom Progress Ring gauge */}
+            {/* Custom Progress Ring gauge — same presentation as the /socket-score page */}
             <div className="my-auto">
-              <ProgressRing score={userScore} size={88} strokeWidth={8} />
+              <div className="rounded-full bg-white p-1.5 shadow-md">
+                <ProgressRing score={userScore} size={112} strokeWidth={11} />
+              </div>
             </div>
 
             {/* Grade & Tier Badge directly beneath ring */}
