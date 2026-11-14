@@ -16,7 +16,7 @@ import { ROUTES } from "@/constants/routes";
 
 const MEMBERSHIP_FEE_AMOUNT = 1000;
 const QUICK_AMOUNTS = [1000, 5000, 10000, 20000];
-const PAYABLE_STATUSES = ["active", "warning_30_days", "defaulted_60_days", "restricted_90_days"];
+const PAYABLE_STATUSES = ["active", "warning_30_days", "defaulted_60_days", "restricted_90_days", "recovery_120_days"];
 
 export function LoanRepay() {
   const navigate = useNavigate();
