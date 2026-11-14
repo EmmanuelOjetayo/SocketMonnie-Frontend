@@ -18,6 +18,7 @@ export const ROUTES = {
   ONBOARDING_CREATE_PIN: "/onboarding/create-pin",
   ONBOARDING_BIOMETRICS: "/onboarding/biometrics", // optional
   ONBOARDING_SUCCESS: "/onboarding/success",
+  ACCOUNT_CREATED: "/account-created",
 
   // Member (user) app
   DASHBOARD: "/dashboard",

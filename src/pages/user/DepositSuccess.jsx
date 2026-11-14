@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { SuccessReceipt } from "@/components/success/SuccessReceipt";
+import TransactionSuccessLayout from "@/components/success/TransactionSuccessLayout";
+import toast from "react-hot-toast";
+import { downloadReceiptPdf } from "@/utils/receiptPdf";
+import { shareReceipt } from "@/utils/receiptShare";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getSavingsSummary } from "@/services/savings";
 import { buildReceiptData } from "@/utils/receiptData";
+import { formatNaira } from "@/utils/format";
 
 /**
  * Unified DepositSuccess page.
@@ -82,8 +86,7 @@ export function DepositSuccess() {
   const displayMethod = transaction?.method || expectedMethod;
   const displayMethodLabel = String(displayMethod || "bank_transfer").replace("_", " ").toUpperCase();
 
-  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
-
+  // receipt status is modeled by the `tone` prop passed to TransactionSuccessLayout.
   // Canonical receipt model — built ONLY from the backend record. Without a
   // backend record there is no receipt to download, so a pending/unknown
   // payment can never produce a printable "successful" receipt.
@@ -164,8 +167,40 @@ export function DepositSuccess() {
     ];
   }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
 
+  const handleDownload = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing your receipt...");
+    try {
+      await downloadReceiptPdf(receipt);
+      toast.success("Receipt downloaded", { id: toastId });
+    } catch (error) {
+      toast.error(error?.message || "Could not generate the PDF receipt", { id: toastId });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing receipt to share...");
+    try {
+      const result = await shareReceipt(receipt);
+      if (result?.cancelled) {
+        toast.dismiss(toastId);
+      } else if (result?.method === "clipboard") {
+        toast.success("Receipt summary copied to clipboard", { id: toastId });
+      } else if (result?.method === "native") {
+        toast.success("Receipt shared", { id: toastId });
+      } else {
+        toast.error("Sharing is not supported on this device", { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error?.message || "Could not share the receipt", { id: toastId });
+    }
+  };
+
+  const tone = isSuccess ? "success" : isFailed ? "failed" : "pending";
+
   const title = isSuccess
-    ? "Transfer Successful"
+    ? "Deposit Successful"
     : isFailed
     ? "Payment Not Confirmed"
     : "Confirming Your Payment";
@@ -177,15 +212,17 @@ export function DepositSuccess() {
     : "We are confirming your payment with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <SuccessReceipt
+    <div className="min-h-screen bg-[#F7F8FB] pb-8">
+      <TransactionSuccessLayout
         title={title}
-        amount={confirmedAmount}
+        amount={formatNaira(confirmedAmount, { decimals: 2 })}
         subtitle={subtitle}
-        details={details}
-        actions={actions}
-        status={receiptStatus}
-        receipt={receipt}
+        rows={details}
+        primaryActions={actions}
+        tone={tone}
+        showReceiptActions={Boolean(receipt)}
+        onDownload={handleDownload}
+        onShare={handleShare}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { CreditCard, UploadCloud, ShieldCheck, Check } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -8,8 +8,6 @@ import { ROUTES } from "@/constants/routes";
 
 export function KycUpload() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isSuccessView = location.pathname === (ROUTES.ONBOARDING_SUCCESS || "/onboarding/success");
 
   // Personal Info Extras (Backend `UpdatePersonalInfo` sync)
   const [address, setAddress] = useState("");
@@ -26,9 +24,6 @@ export function KycUpload() {
   const [idFile, setIdFile] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-
-  const showSuccess = isSuccessView || isCompleted;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,9 +83,9 @@ export function KycUpload() {
 
             {[
               { label: "Personal", num: 1, state: "done" },
-              { label: "KYC Verification", num: 2, state: showSuccess ? "done" : "current" },
-              { label: "Review", num: 3, state: showSuccess ? "done" : "pending" },
-              { label: "Completed", num: 4, state: showSuccess ? "done" : "pending" },
+              { label: "KYC Verification", num: 2, state: "current" },
+              { label: "Review", num: 3, state: "pending" },
+              { label: "Completed", num: 4, state: "pending" },
             ].map((step) => (
               <div key={step.label} className="relative z-10 flex flex-col items-center flex-1 px-1">
                 <div
@@ -122,47 +117,7 @@ export function KycUpload() {
       </div>
 
       <div className="w-full max-w-md px-6 pt-20 flex-1 flex flex-col">
-        {showSuccess ? (
-          <div className="flex-1 flex flex-col items-center text-center pt-2 pb-4">
-            <div className="flex flex-col items-center justify-center w-full mt-8">
-              <div className="relative w-[168px] h-[168px] flex items-center justify-center mb-8">
-                <svg viewBox="0 0 100 100" className="w-full h-full text-[#3B62EC] fill-current">
-                  <path d="M 50.00 2.00 L 56.26 10.49 L 64.83 4.35 L 68.16 14.36 L 78.21 11.17 L 78.28 21.72 L 88.83 21.79 L 85.64 31.84 L 95.65 35.17 L 89.51 43.74 L 98.00 50.00 L 89.51 56.26 L 95.65 64.83 L 85.64 68.16 L 88.83 78.21 L 78.28 78.28 L 78.21 88.83 L 68.16 85.64 L 64.83 95.65 L 56.26 89.51 L 50.00 98.00 L 43.74 89.51 L 35.17 95.65 L 31.84 85.64 L 21.79 88.83 L 21.72 78.28 L 11.17 78.21 L 14.36 68.16 L 4.35 64.83 L 10.49 56.26 L 2.00 50.00 L 10.49 43.74 L 4.35 35.17 L 14.36 31.84 L 11.17 21.79 L 21.72 21.72 L 21.79 11.17 L 31.84 14.36 L 35.17 4.35 L 43.74 10.49 Z" />
-                </svg>
-                <svg
-                  className="absolute w-[56px] h-[56px] text-white"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
 
-              <h2 className="text-[32px] leading-[1.15] font-bold text-[#111827] tracking-tight">
-                Account Created <br /> Successfully!
-              </h2>
-
-              <p className="text-[13px] text-[#4B5563] max-w-[300px] mx-auto mt-4 leading-relaxed">
-                Welcome to SocketMonnie Co-operative. <br />
-                Your account is now active and ready to use.
-              </p>
-            </div>
-
-            <div className="mt-auto w-full pt-10">
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.DASHBOARD || "/dashboard")}
-                className="w-full py-4 bg-[#3B62EC] hover:bg-[#3052D1] text-white font-semibold text-[18px] rounded-full shadow-lg shadow-blue-500/20 active:scale-[0.99] transition-all cursor-pointer"
-              >
-                Go to Dashboard
-              </button>
-            </div>
-          </div>
-): (
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Background Profile Details */}
             <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3">
@@ -278,7 +233,7 @@ export function KycUpload() {
               {isSubmitting ? "Submitting..." : "Finish Onboarding"}
             </button>
           </form>
-        )}
+
       </div>
     </div>
   );

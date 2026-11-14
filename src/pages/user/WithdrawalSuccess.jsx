@@ -1,12 +1,14 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
-import { SuccessReceipt } from "@/components/success/SuccessReceipt";
-import { ReceiptActions } from "@/components/receipt/ReceiptActions";
+import TransactionSuccessLayout from "@/components/success/TransactionSuccessLayout";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { buildReceiptData } from "@/utils/receiptData";
 import { formatNaira } from "@/utils/format";
+import { downloadReceiptPdf } from "@/utils/receiptPdf";
+import { shareReceipt } from "@/utils/receiptShare";
 
 /**
  * Withdrawal request confirmation.
@@ -76,6 +78,7 @@ export function WithdrawalSuccess() {
       {
         label: "Status",
         value: isPending ? "Pending Approval" : "Processing",
+        tone: isPending ? undefined : "success",
       },
       {
         label: "Withdrawal fee",
@@ -117,36 +120,67 @@ export function WithdrawalSuccess() {
     [navigate]
   );
 
+  const handleDownload = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing your receipt...");
+    try {
+      await downloadReceiptPdf(receipt);
+      toast.success("Receipt downloaded", { id: toastId });
+    } catch (error) {
+      toast.error(error?.message || "Could not generate the PDF receipt", { id: toastId });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing receipt to share...");
+    try {
+      const result = await shareReceipt(receipt);
+      if (result?.cancelled) {
+        toast.dismiss(toastId);
+      } else if (result?.method === "clipboard") {
+        toast.success("Receipt summary copied to clipboard", { id: toastId });
+      } else if (result?.method === "native") {
+        toast.success("Receipt shared", { id: toastId });
+      } else {
+        toast.error("Sharing is not supported on this device", { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error?.message || "Could not share the receipt", { id: toastId });
+    }
+  };
+
+  const tone = isPending ? "pending" : "success";
+
   const title = "Withdrawal Request Submitted";
   const subtitle =
     "Your savings have been submitted for withdrawal. The payout will be processed after the request is reviewed and approved.";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <SuccessReceipt
+    <div className="min-h-screen bg-[#F7F8FB] pb-8">
+      <TransactionSuccessLayout
         title={title}
-        amount={amount}
+        amount={formatNaira(amount, { decimals: 2 })}
         subtitle={subtitle}
-        details={details}
-        actions={actions}
-        status={isPending ? "pending" : "successful"}
-        receipt={receipt}
+        rows={details}
+        primaryActions={actions}
+        tone={tone}
+        showReceiptActions={Boolean(receipt)}
+        onDownload={handleDownload}
+        onShare={handleShare}
       />
 
       {receipt && (
-        <div className="px-5">
+        <div className="px-4">
           <p className="mb-2 text-center text-[10px] font-medium leading-relaxed text-gray-400">
-            This receipt records a withdrawal request awaiting approval — it is
-            not a completed payout.
+            This receipt records a withdrawal request awaiting approval — it is not a completed payout.
           </p>
-          <ReceiptActions data={receipt} showView={false} layout="row" />
         </div>
       )}
 
       {status === "not_found" && (
         <p className="px-5 text-center text-[10px] font-medium text-gray-400">
-          We could not find this withdrawal in your records. If you were
-          charged, contact support.
+          We could not find this withdrawal in your records. If you were charged, contact support.
         </p>
       )}
     </div>
