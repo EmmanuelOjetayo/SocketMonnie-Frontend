@@ -299,15 +299,21 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
                 const rawDate = tx.date || tx.createdAt || tx.paidAt;
                 const formattedDate = rawDate ? String(rawDate).split("T")[0] : "";
                 const timeLabel = rawDate ? formatDate(new Date(rawDate), "h:mm a") : "";
+                const txId = tx.id || tx._id;
 
                 return (
                   <TransactionRow
-                    key={tx.id || tx._id || idx}
+                    key={txId || idx}
                     label={tx.label || "Transaction"}
                     amount={tx.direction === "debit" ? -Math.abs(tx.amount) : Math.abs(tx.amount)}
                     direction={tx.direction || "credit"}
                     date={formattedDate}
                     time={timeLabel}
+                    onClick={
+                      txId
+                        ? () => navigate(ROUTES.TRANSACTION_DETAIL.replace(":id", String(txId)))
+                        : undefined
+                    }
                   />
                 );
               })}

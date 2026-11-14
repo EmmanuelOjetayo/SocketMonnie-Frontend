@@ -67,6 +67,18 @@ export function Notifications() {
 
   const notificationsList = data?.notifications || data?.data || [];
 
+  function getTransactionIdFromNotification(notification) {
+    const data = notification?.data || {};
+    return (
+      data.transactionId ||
+      data.transaction_id ||
+      data.txId ||
+      data.id ||
+      notification?.transactionId ||
+      null
+    );
+  }
+
   async function handleNotificationClick(notification) {
     if (!notification.read && (notification._id || notification.id)) {
       await markNotificationRead(notification._id || notification.id).catch(() => {});
@@ -92,6 +104,12 @@ export function Notifications() {
           date: notification.createdAt,
         },
       });
+      return;
+    }
+
+    const txId = getTransactionIdFromNotification(notification);
+    if (txId) {
+      navigate(ROUTES.TRANSACTION_DETAIL.replace(":id", String(txId)));
     }
   }
 
@@ -216,11 +234,17 @@ export function Notifications() {
                       ? formatNotificationTime(n.createdAt)
                       : n.time;
 
+                    const txId = getTransactionIdFromNotification(n);
+                    const isClickable =
+                      Boolean(txId) ||
+                      Boolean(n?.data?.token) ||
+                      Boolean(n?.data?.action?.startsWith?.("withdrawal_"));
+
                     return (
                       <div
                         key={n.id || n._id}
                         onClick={() => handleNotificationClick(n)}
-                        className={`p-4 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-start gap-3 relative ${n.data?.token || n.data?.action?.startsWith("withdrawal_") ? "cursor-pointer hover:border-indigo-200" : ""}`}
+                        className={`p-4 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-start gap-3 relative ${isClickable ? "cursor-pointer hover:border-indigo-200" : ""}`}
                       >
                         {/* ICON BUBBLE */}
                         <div className="size-11 rounded-full bg-indigo-50/80 border border-indigo-100 flex items-center justify-center shrink-0">

@@ -2,10 +2,31 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatNaira, formatDate } from "@/utils/format";
 import { cn } from "@/utils/cn";
 
-export function TransactionRow({ label, amount, direction, date, time }) {
+export function TransactionRow({ label, amount, direction, date, time, onClick }) {
   const isCredit = direction === "credit";
+  const clickable = typeof onClick === "function";
+
   return (
-    <div className="flex items-center gap-3 py-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 py-3",
+        clickable &&
+          "cursor-pointer rounded-xl px-1 -mx-1 transition-colors hover:bg-surface-alt/70 active:bg-surface-alt"
+      )}
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick(e);
+              }
+            }
+          : undefined
+      }
+    >
       <div
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-full",
