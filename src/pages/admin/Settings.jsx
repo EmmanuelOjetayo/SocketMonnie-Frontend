@@ -165,7 +165,7 @@ export function AdminSettings() {
             <label className="text-xs font-medium text-text-secondary">Referrer Reward (₦)</label>
             <Input
               type="number"
-              value={settings.referralReward.referrerAmount || 500}
+              value={settings.referralReward?.referrerAmount ?? 500}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -181,7 +181,7 @@ export function AdminSettings() {
             <label className="text-xs font-medium text-text-secondary">Referred User Reward (₦)</label>
             <Input
               type="number"
-              value={settings.referralReward.referredUserAmount || 0}
+              value={settings.referralReward?.referredUserAmount ?? 0}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -197,7 +197,7 @@ export function AdminSettings() {
             <label className="text-xs font-medium text-text-secondary">Qualification Event</label>
             <select
               className="w-full rounded-2xl border border-[#bdc8f3]/40 bg-white px-3 py-2 text-xs font-semibold text-[#090f24] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#131e49]/20"
-              value={settings.referralReward.qualificationEvent || "membership_fee_paid"}
+              value={settings.referralReward?.qualificationEvent || "membership_fee_paid"}
               onChange={(e) =>
                 setSettings({
                   ...settings,
