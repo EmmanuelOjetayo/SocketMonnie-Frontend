@@ -91,9 +91,28 @@ const CATEGORY_ALIASES = {
  * Work out the concrete transaction category from either record shape:
  *  - unified list row: { type: "savings", category: "deposit" }
  *  - payment-status receipt: { type: "minute_contribution" }
+ *
+ * Minutes checkouts are initialised as Savings rows (type="deposit",
+ * category="minutes_payment"). Never let those collapse into a
+ * savings deposit: if the record is minute-flavored in any field,
+ * prefer the minute classification over anything else.
  */
 export function resolveCategory(record) {
   const candidates = [record?.category, record?.type];
+
+  const isMinute =
+    /minute/i.test(String(record?.type || "")) ||
+    /minute/i.test(String(record?.category || "")) ||
+    /MIN_/i.test(String(record?.reference || ""));
+  if (isMinute) {
+    for (const candidate of [record?.category, record?.type]) {
+      const raw = String(candidate || "").toLowerCase();
+      if (!raw) continue;
+      if (CATEGORY_ALIASES[raw]?.includes("minute")) return CATEGORY_ALIASES[raw];
+      if (GROUP_TO_CATEGORY[raw]?.includes("minute")) return GROUP_TO_CATEGORY[raw];
+    }
+    return "minute_contribution";
+  }
 
   for (const candidate of candidates) {
     const raw = String(candidate || "").toLowerCase();
