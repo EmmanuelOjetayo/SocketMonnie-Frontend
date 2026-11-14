@@ -165,6 +165,7 @@ export function Minutes() {
           // Server-owned split id — used only in this checkout request.
           subaccount_id: payload?.subaccount_id,
         });
+      console.log("[MINUTES] FLW RESPONSE:", response);
       } catch (checkoutError) {
         if (isPaymentWindowClosed(checkoutError)) {
           /*

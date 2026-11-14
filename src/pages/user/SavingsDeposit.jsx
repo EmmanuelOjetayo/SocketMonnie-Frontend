@@ -240,6 +240,8 @@ export function SavingsDeposit() {
         response
       );
 
+      console.log("[DEPOSIT] INIT RESPONSE:", response);
+
       if (!response.success) {
         throw new Error(
           response.message ||
@@ -279,13 +281,15 @@ export function SavingsDeposit() {
         subaccount_id: payment.subaccount_id,
       });
 
+      console.log("[DEPOSIT] FLW RESPONSE:", flwResponse);
+
       if (flwResponse?.status && flwResponse.status !== "successful") {
         // The checkout callback reports a failed attempt. The failed page
         // re-verifies nothing — it is informational; the backend record stays
         // pending until the provider confirms the final outcome.
         setIsSubmitting(false);
         toast.error(`Payment ${flwResponse.status}. Please try again.`);
-        navigate(`${ROUTES.PAYMENTS_SAVINGS_FAILED}?${params.join("&")}`);
+        navigate(ROUTES.PAYMENTS_SAVINGS_FAILED);
         return;
       }
 

@@ -73,6 +73,8 @@ export function LoanRepay() {
         subaccount_id: payload.subaccount_id,
       });
 
+      console.log("[LOAN REPAY] FLW RESPONSE:", response);
+
       if (response?.status && response.status !== "successful") {
         setIsSubmitting(false);
         toast.error(`Payment ${response.status}. Please try again.`);

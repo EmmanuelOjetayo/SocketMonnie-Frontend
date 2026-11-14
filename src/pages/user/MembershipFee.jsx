@@ -53,6 +53,8 @@ export function MembershipFee() {
         subaccount_id: payload?.subaccount_id,
       });
 
+      console.log("[MEMBERSHIP] FLW RESPONSE:", response);
+
       const responseReference = response?.tx_ref || response?.reference || reference;
       checkoutTxId = response?.transaction_id || response?.id || null;
 

@@ -31,6 +31,9 @@ export function MinutesSuccessPage() {
 
   const { transaction, status, isConfirming, error, refresh } = usePaymentConfirmation(reference);
 
+  // Debug: authoritative status snapshot per poll cycle.
+  console.log("[MINUTES SUCCESS] status:", status, "ref:", reference, "tx:", transaction?.transactionId, "isConfirming:", isConfirming);
+
   const isSuccess = status === "successful";
   const isFailed = status === "failed" || status === "not_found";
 

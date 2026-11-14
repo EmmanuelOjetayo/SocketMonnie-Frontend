@@ -45,6 +45,9 @@ export function DepositSuccess() {
   // Latest verified balance (fetched once the backend confirms success).
   const [updatedBalance, setUpdatedBalance] = useState(stateNewBalance ?? null);
 
+  // Debug: authoritative status snapshot per poll cycle.
+  console.log("[DEPOSIT SUCCESS] status:", status, "ref:", reference, "tx:", transaction?.transactionId, "isConfirming:", isConfirming);
+
   const isSuccess = status === "successful";
   const isFailed = status === "failed" || status === "not_found";
 
