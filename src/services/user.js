@@ -102,6 +102,45 @@ export async function setTransactionPin({ pin }) {
 }
 
 /**
+ * ## Change Transaction PIN
+ * POST /api/user/pin/change
+ * Body: { currentPin, newPin, confirmNewPin? }
+ * Auth: required (routeProtect). Backend re-validates the current PIN against
+ * the stored bcrypt hash and rejects reuse of the current PIN.
+ * Response: { success, message, data: { isPinSet } }
+ */
+export async function changeTransactionPin({ currentPin, newPin, confirmNewPin }) {
+  if (USE_MOCK) return mockDelay({ success: true, message: "Transaction PIN changed successfully." });
+  return apiClient.post("/user/pin/change", { currentPin, newPin, confirmNewPin });
+}
+
+/**
+ * ## Forgot Transaction PIN
+ * POST /api/user/pin/forgot
+ * Body: { email }
+ * Public (no session required — member is resetting a forgotten PIN).
+ * Response: { success, message }
+ */
+export async function forgotTransactionPin({ email }) {
+  if (USE_MOCK) return mockDelay({ success: true, message: "If an account exists for that email, a PIN reset OTP has been sent." });
+  return apiClient.post("/user/pin/forgot", { email });
+}
+
+/**
+ * ## Reset Transaction PIN
+ * POST /api/user/pin/reset
+ * Body: { email, otp, newPin }
+ * Auth: required — member-bound (authenticated user must own the email).
+ * Verifies the OTP (expiry + single-use + attempt limits enforced server-side),
+ * hashes the new PIN, clears the recovery authorization, and audits.
+ * Response: { success, message }
+ */
+export async function resetTransactionPin({ email, otp, newPin }) {
+  if (USE_MOCK) return mockDelay({ success: true, message: "Transaction PIN reset successfully." });
+  return apiClient.post("/user/pin/reset", { email, otp, newPin });
+}
+
+/**
  * ## Update Bank Details
  * PUT /api/user/bank-details
  * Body: { bankName, accountName, accountNumber }

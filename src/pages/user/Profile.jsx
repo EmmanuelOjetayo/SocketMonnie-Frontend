@@ -24,6 +24,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { OtpInput } from "@/components/forms/OtpInput";
 import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { formatNaira } from "@/utils/format";
@@ -37,6 +38,9 @@ import {
   uploadProfilePicture,
   deleteProfilePicture,
   setTransactionPin,
+  changeTransactionPin,
+  forgotTransactionPin,
+  resetTransactionPin,
 } from "@/services/user";
 import { normalizeUser } from "@/utils/userProfile";
 import { ROUTES } from "@/constants/routes";
@@ -131,8 +135,16 @@ export function Profile() {
   const [isUploadingKyc, setIsUploadingKyc] = useState(false);
 
   // 4. Security / Pin
-  const [pin, setPin] = useState("");
+  const [pin, setPin] = useState(""); // Set-PIN flow (onboarding / not yet set)
   const [isSavingPin, setIsSavingPin] = useState(false);
+  // Transaction PIN change / forgot-recovery flow states
+  const [pinStage, setPinStage] = useState("menu"); // "menu" | "set" | "change" | "forgot" | "reset"
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [isSendingResetOtp, setIsSendingResetOtp] = useState(false);
 
   // 5. Profile Photo (CRUD: upload/replace + delete)
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
@@ -210,16 +222,22 @@ export function Profile() {
       return;
     }
 
+    // KYC approval lock: once approved, identity / residential fields are
+    // read-only and must not be re-submitted (backend rejects with 403).
+    const kycApproved = kycStatus === "approved";
+
     setIsSavingInfo(true);
     try {
       const payload = {};
       if (fullName) payload.fullName = fullName;
       if (phone) payload.phone = phone;
-      if (personalInfo.dateOfBirth) payload.dateOfBirth = personalInfo.dateOfBirth;
-      if (personalInfo.gender) payload.gender = personalInfo.gender;
-      if (personalInfo.address) payload.address = personalInfo.address;
-      if (personalInfo.stateOfOrigin) payload.stateOfOrigin = personalInfo.stateOfOrigin;
-      if (personalInfo.occupation) payload.occupation = personalInfo.occupation;
+      if (!kycApproved) {
+        if (personalInfo.dateOfBirth) payload.dateOfBirth = personalInfo.dateOfBirth;
+        if (personalInfo.gender) payload.gender = personalInfo.gender;
+        if (personalInfo.address) payload.address = personalInfo.address;
+        if (personalInfo.stateOfOrigin) payload.stateOfOrigin = personalInfo.stateOfOrigin;
+        if (personalInfo.occupation) payload.occupation = personalInfo.occupation;
+      }
       if (personalInfo.monthlySavingsCommitment) {
         payload.monthlySavingsCommitment = Number(personalInfo.monthlySavingsCommitment);
       }
@@ -356,6 +374,11 @@ export function Profile() {
 
   async function handleKycUpload() {
     // Owner-approved KYC policy: NIN is mandatory, BVN optional.
+    // Once approved, the KYC record is locked (read-only for the member).
+    if (kycStatus === "approved") {
+      toast.error("Your KYC has been approved and your details are now locked.");
+      return;
+    }
     if (!kycData.nin || kycData.nin.length !== 11) {
       toast.error("Your 11-digit NIN is required for verification");
       return;
@@ -399,11 +422,111 @@ export function Profile() {
         toast.success(res.message || "PIN set successfully!");
         setPin("");
         setActiveModal(null);
+        setPinStage("menu");
       } else {
         toast.error(res?.message || "Failed to set PIN");
       }
     } catch (error) {
       toast.error(error?.data?.message || error?.message || "Failed to set PIN");
+    } finally {
+      setIsSavingPin(false);
+    }
+  }
+
+  // --- Transaction PIN: Change (member remembers current PIN) ---
+  async function handleChangePin() {
+    if (currentPin.length !== 4) {
+      toast.error("Please enter your current 4-digit PIN");
+      return;
+    }
+    if (newPin.length !== 4) {
+      toast.error("Please enter a new 4-digit PIN");
+      return;
+    }
+    if (confirmNewPin !== newPin) {
+      toast.error("New PINs do not match");
+      return;
+    }
+    setIsSavingPin(true);
+    try {
+      const res = await changeTransactionPin({ currentPin, newPin, confirmNewPin });
+      if (res?.success) {
+        setUser((currentUser) => ({ ...currentUser, isPinSet: true }));
+        toast.success(res.message || "Transaction PIN changed successfully!");
+        setPin("");
+        setCurrentPin("");
+        setNewPin("");
+        setConfirmNewPin("");
+        setActiveModal(null);
+        setPinStage("menu");
+      } else {
+        toast.error(res?.message || "Failed to change PIN");
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Failed to change PIN");
+    } finally {
+      setIsSavingPin(false);
+    }
+  }
+
+  // --- Transaction PIN: Forgot (request recovery OTP) ---
+  async function handleForgotPinSubmit(e) {
+    if (e) e.preventDefault?.();
+    const email = String(forgotEmail || "").trim().toLowerCase();
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+    setIsSendingResetOtp(true);
+    try {
+      const res = await forgotTransactionPin({ email });
+      if (res?.success) {
+        setResetOtp("");
+        setPinStage("reset");
+        toast.success(res.message || "PIN reset OTP sent to your email.");
+      } else {
+        toast.error(res?.message || "Failed to send reset OTP");
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Failed to send reset OTP");
+    } finally {
+      setIsSendingResetOtp(false);
+    }
+  }
+
+  // --- Transaction PIN: Reset (verify OTP + set new PIN) ---
+  async function handleResetPinSubmit(e) {
+    if (e) e.preventDefault?.();
+    if (resetOtp.length < 4) {
+      toast.error("Please enter the 4-digit OTP");
+      return;
+    }
+    if (newPin.length !== 4) {
+      toast.error("Please enter a new 4-digit PIN");
+      return;
+    }
+    if (confirmNewPin !== newPin) {
+      toast.error("New PINs do not match");
+      return;
+    }
+    setIsSavingPin(true);
+    try {
+      const res = await resetTransactionPin({ email: forgotEmail, otp: resetOtp, newPin });
+      if (res?.success) {
+        toast.success(res.message || "Transaction PIN reset successfully!");
+        setPin("");
+        setCurrentPin("");
+        setNewPin("");
+        setConfirmNewPin("");
+        setResetOtp("");
+        setUser((currentUser) => ({ ...currentUser, isPinSet: true }));
+        setActiveModal(null);
+        setPinStage("menu");
+      } else {
+        toast.error(res?.message || "Failed to reset PIN");
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Failed to reset PIN");
     } finally {
       setIsSavingPin(false);
     }
@@ -507,7 +630,7 @@ export function Profile() {
     {
       icon: Lock,
       title: "Security & Transaction PIN",
-      subtitle: user?.isPinSet ? "Update 4-digit PIN" : "Set 4-digit PIN",
+      subtitle: user?.isPinSet ? "Change or reset your Transaction PIN" : "Set 4-digit PIN",
       action: () => setActiveModal("pin"),
     },
   ];
@@ -689,6 +812,16 @@ export function Profile() {
               </button>
             </div>
 
+            {/* KYC approval lock: identity / residential details are read-only once approved */}
+            {kycStatus === "approved" && (
+              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                <p className="text-xs font-bold text-emerald-700">Your KYC has been approved and your details are now locked.</p>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  You can view your submitted information below, but no further changes can be made.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-3 pt-2">
               <Input
                 label="Full Name"
@@ -714,6 +847,7 @@ export function Profile() {
                 label="Date of Birth"
                 type="date"
                 value={personalInfo.dateOfBirth}
+                disabled={kycStatus === "approved"}
                 onChange={(e) => setPersonalInfo({ ...personalInfo, dateOfBirth: e.target.value })}
               />
 
@@ -721,6 +855,7 @@ export function Profile() {
                 <label className="mb-1.5 block text-xs font-semibold text-gray-700">Gender</label>
                 <select
                   value={personalInfo.gender}
+                  disabled={kycStatus === "approved"}
                   onChange={(e) => setPersonalInfo({ ...personalInfo, gender: e.target.value })}
                   className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#3b5bdb]"
                 >
@@ -734,6 +869,7 @@ export function Profile() {
                 label="Address"
                 placeholder="Residential Address"
                 value={personalInfo.address}
+                disabled={kycStatus === "approved"}
                 onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })}
               />
 
@@ -741,6 +877,7 @@ export function Profile() {
                 label="State of Origin"
                 placeholder="e.g. Lagos"
                 value={personalInfo.stateOfOrigin}
+                disabled={kycStatus === "approved"}
                 onChange={(e) => setPersonalInfo({ ...personalInfo, stateOfOrigin: e.target.value })}
               />
 
@@ -748,6 +885,7 @@ export function Profile() {
                 label="Occupation"
                 placeholder="e.g. Software Engineer"
                 value={personalInfo.occupation}
+                disabled={kycStatus === "approved"}
                 onChange={(e) => setPersonalInfo({ ...personalInfo, occupation: e.target.value })}
               />
 
@@ -869,6 +1007,16 @@ export function Profile() {
               </button>
             </div>
 
+            {/* KYC approval lock: approved records are read-only for members */}
+            {kycStatus === "approved" && (
+              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                <p className="text-xs font-bold text-emerald-700">Your KYC has been approved and is now locked.</p>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Your verified identity details cannot be modified. You can view your submitted document below.
+                </p>
+              </div>
+            )}
+
             {/* Rejected → in-app replacement affordance (owner decision #1) */}
             {kycStatus === "rejected" && (
               <div className="p-3 bg-red-50 border border-red-100 rounded-2xl">
@@ -905,6 +1053,7 @@ export function Profile() {
               </div>
             )}
 
+            {kycStatus !== "approved" && (
             <div className="space-y-3 pt-1">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-gray-700">Document Type</label>
@@ -947,47 +1096,239 @@ export function Profile() {
                 />
               </div>
             </div>
+            )}
 
+            {kycStatus !== "approved" && (
             <Button fullWidth isLoading={isUploadingKyc} onClick={handleKycUpload} className="mt-4 rounded-full bg-[#1d2d6d]">
               {user?.documentUrl ? "Update Document" : "Submit KYC"}
             </Button>
+            )}
           </div>
         </div>
       )}
 
-      {/* 4. SET / UPDATE TRANSACTION PIN MODAL */}
+      {/* 4. SET / UPDATE / FORGOT / RESET TRANSACTION PIN MODAL */}
       {activeModal === "pin" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">
-                {user?.isPinSet ? "Update Transaction PIN" : "Set Transaction PIN"}
+                {pinStage === "change"
+                  ? "Update Transaction PIN"
+                  : pinStage === "reset"
+                    ? "Reset Transaction PIN"
+                    : "Security & Transaction PIN"}
               </h3>
-              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  setPinStage("menu");
+                }}
+                className="rounded-full p-1 transition-colors hover:bg-gray-100"
+              >
                 <X className="size-5 text-gray-500" />
               </button>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <Input
-                label="Enter 4-Digit PIN"
-                type="password"
-                maxLength={4}
-                placeholder="****"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
+            {/* Stage: Menu — choose set / change / forgot */}
+            {pinStage === "menu" && (
+              <div className="space-y-3 pt-2">
+                {user?.isPinSet ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      Your Transaction PIN is set. Choose whether you want to change it or recover it.
+                    </p>
+                    <Button
+                      fullWidth
+                      onClick={() => {
+                        setPinStage("change");
+                        setCurrentPin("");
+                        setNewPin("");
+                        setConfirmNewPin("");
+                      }}
+                      className="mt-4 rounded-full bg-[#1d2d6d]"
+                    >
+                      Change Transaction PIN
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant="outline"
+                      onClick={() => {
+                        setForgotEmail(user?.email || "");
+                        setPinStage("forgot");
+                      }}
+                      className="mt-2 rounded-full border-[#1d2d6d] text-[#1d2d6d]"
+                    >
+                      Forgot Transaction PIN?
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    fullWidth
+                    onClick={() => setPinStage("set")}
+                    className="mt-4 rounded-full bg-[#1d2d6d]"
+                  >
+                    Set Transaction PIN
+                  </Button>
+                )}
+              </div>
+            )}
 
-            <Button
-              fullWidth
-              isLoading={isSavingPin}
-              disabled={pin.length !== 4}
-              onClick={handleSetPin}
-              className="mt-4 rounded-full bg-[#1d2d6d]"
-            >
-              {user?.isPinSet ? "Update PIN" : "Save PIN"}
-            </Button>
+            {/* Stage: Set — onboarding / member without a PIN yet */}
+            {pinStage === "set" && (
+              <div className="space-y-3 pt-2">
+                <Input
+                  label="Enter 4-Digit PIN"
+                  type="password"
+                  maxLength={4}
+                  placeholder="****"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Button
+                  fullWidth
+                  isLoading={isSavingPin}
+                  disabled={pin.length !== 4}
+                  onClick={handleSetPin}
+                  className="mt-4 rounded-full bg-[#1d2d6d]"
+                >
+                  Save PIN
+                </Button>
+              </div>
+            )}
+
+            {/* Stage: Change — requires current PIN + new PIN + confirmation */}
+            {pinStage === "change" && (
+              <div className="space-y-3 pt-2">
+                <Input
+                  label="Current Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="****"
+                  value={currentPin}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Input
+                  label="New Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="****"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Input
+                  label="Confirm New Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="****"
+                  value={confirmNewPin}
+                  onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Button
+                  fullWidth
+                  isLoading={isSavingPin}
+                  disabled={currentPin.length !== 4 || newPin.length !== 4 || confirmNewPin.length !== 4}
+                  onClick={handleChangePin}
+                  className="mt-4 rounded-full bg-[#1d2d6d]"
+                >
+                  Change PIN
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outline"
+                  onClick={() => setPinStage("menu")}
+                  className="rounded-full border-[#1d2d6d] text-[#1d2d6d]"
+                >
+                  Back
+                </Button>
+              </div>
+            )}
+
+            {/* Stage: Forgot — request the recovery OTP */}
+            {pinStage === "forgot" && (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-gray-600">
+                  Forgot your Transaction PIN? Enter the email address registered to your account and we&apos;ll send a
+                  one-time reset code to it.
+                </p>
+                <Input
+                  label="Registered Email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                />
+                <Button
+                  fullWidth
+                  isLoading={isSendingResetOtp}
+                  disabled={!forgotEmail}
+                  onClick={handleForgotPinSubmit}
+                  className="mt-4 rounded-full bg-[#1d2d6d]"
+                >
+                  Send Reset OTP
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outline"
+                  onClick={() => setPinStage("menu")}
+                  className="rounded-full border-[#1d2d6d] text-[#1d2d6d]"
+                >
+                  Back
+                </Button>
+              </div>
+            )}
+
+            {/* Stage: Reset — verify OTP then set the new PIN */}
+            {pinStage === "reset" && (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-gray-600">
+                  Enter the 4-digit reset code sent to {forgotEmail || "your email"} and choose a new Transaction PIN.
+                </p>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-text-secondary">OTP Code</label>
+                  <OtpInput length={4} value={resetOtp} onChange={setResetOtp} />
+                </div>
+                <Input
+                  label="New Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="****"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Input
+                  label="Confirm New Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="****"
+                  value={confirmNewPin}
+                  onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
+                />
+                <Button
+                  fullWidth
+                  isLoading={isSavingPin}
+                  disabled={resetOtp.length < 4 || newPin.length !== 4 || confirmNewPin.length !== 4}
+                  onClick={handleResetPinSubmit}
+                  className="mt-4 rounded-full bg-[#1d2d6d]"
+                >
+                  Reset Transaction PIN
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outline"
+                  onClick={() => setPinStage("forgot")}
+                  className="rounded-full border-[#1d2d6d] text-[#1d2d6d]"
+                >
+                  Back
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
