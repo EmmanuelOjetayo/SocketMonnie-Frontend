@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -23,11 +23,15 @@ import {
   CreditCard,
   UploadCloud,
   Fingerprint,
+  MapPin,
+  Briefcase,
+  Wallet,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { register } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
 import { setPendingSelfie } from "@/utils/pendingSelfie";
+import { isEligibleDob, getMaxDob } from "@/utils/ageValidation";
 
 const STEPS = [
   { label: "Personal Info", icon: User },
@@ -53,16 +57,23 @@ export function Register() {
 
   const [step, setStep] = useState(0); // 0 = Personal Info, 1 = KYC Verification, 2 = Security
 
+  // Latest permissible date of birth for an 18+ applicant — current date minus
+  // 18 years (month/day aware; someone who turns 18 today is eligible).
+  const maxDob = useMemo(() => getMaxDob(), []);
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
     referralCode: referralFromUrl,
-    // UI-only additions from the new design — not part of the current
-    // signUpSchema payload, so they aren't sent to the backend yet.
+    // Residential / KYC information captured here (single source of truth for
+    // the initial registration step) and persisted via the register payload.
     address: "",
     dob: "",
     gender: "",
+    stateOfOrigin: "",
+    occupation: "",
+    monthlySavingsCommitment: 5000,
     idType: "national_id",
     bvn: "",
     nin: "",
@@ -106,6 +117,16 @@ export function Register() {
   const validatePersonalInfo = () => {
     if (!formData.fullName || !formData.email || !formData.phone || !formData.referralCode) {
       toast.error("Please fill in all required fields");
+      return false;
+    }
+    if (!formData.dob) {
+      toast.error("Please enter your date of birth");
+      return false;
+    }
+    // Age gate: applicants must be at least 18 years old. Enforced here for UX
+    // and independently by the backend before account creation.
+    if (!isEligibleDob(formData.dob)) {
+      toast.error("You must be at least 18 years old to create a SocketMonnie account.");
       return false;
     }
     if (!formData.termsAccepted || !formData.privacyAccepted) {
@@ -164,6 +185,15 @@ export function Register() {
       password: formData.password,
       termsAccepted: formData.termsAccepted === true,
       privacyAccepted: formData.privacyAccepted === true,
+      dateOfBirth: formData.dob,
+      gender: formData.gender || undefined,
+      address: formData.address || undefined,
+      stateOfOrigin: formData.stateOfOrigin || undefined,
+      occupation: formData.occupation || undefined,
+      monthlySavingsCommitment:
+        Number(formData.monthlySavingsCommitment) >= 5000
+          ? Number(formData.monthlySavingsCommitment)
+          : undefined,
     };
 
     try {
@@ -322,6 +352,8 @@ export function Register() {
                   type="date"
                   name="dob"
                   placeholder="Enter Date of Birth"
+                  max={maxDob}
+                  required
                   value={formData.dob}
                   onChange={handleChange}
                   className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 focus:outline-none focus:border-[#3B62EC]"
@@ -339,8 +371,43 @@ export function Register() {
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
-                  <option value="other">Other</option>
                 </select>
+              </div>
+
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  name="stateOfOrigin"
+                  placeholder="State of Origin"
+                  value={formData.stateOfOrigin}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#3B62EC]"
+                />
+              </div>
+
+              <div className="relative">
+                <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  name="occupation"
+                  placeholder="Occupation"
+                  value={formData.occupation}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#3B62EC]"
+                />
+              </div>
+
+              <div className="relative">
+                <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="number"
+                  name="monthlySavingsCommitment"
+                  min={5000}
+                  value={formData.monthlySavingsCommitment}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#3B62EC]"
+                />
               </div>
 
               <div className="bg-[#EEF1FD] p-4 rounded-2xl flex items-start gap-3">

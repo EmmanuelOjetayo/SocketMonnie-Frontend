@@ -1,21 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { CreditCard, UploadCloud, ShieldCheck, Check } from "lucide-react";
+import { CreditCard, UploadCloud } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { uploadKycDocument, updatePersonalInfo } from "@/services/user";
+import { uploadKycDocument } from "@/services/user";
 import { ROUTES } from "@/constants/routes";
 
 export function KycUpload() {
   const navigate = useNavigate();
-
-  // Personal Info Extras (Backend `UpdatePersonalInfo` sync)
-  const [address, setAddress] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [gender, setGender] = useState("");
-  const [stateOfOrigin, setStateOfOrigin] = useState("");
-  const [occupation, setOccupation] = useState("");
-  const [monthlySavingsCommitment, setMonthlySavingsCommitment] = useState(5000);
 
   // KYC Fields (Backend `KYCUpload` sync)
   const [docType, setDocType] = useState("nin");
@@ -36,19 +28,9 @@ export function KycUpload() {
     setIsSubmitting(true);
 
     try {
-      // 1. Send extra personal profile details in background
-      if (address || dateOfBirth || gender || stateOfOrigin || occupation) {
-        await updatePersonalInfo({
-          ...(address && { address }),
-          ...(dateOfBirth && { dateOfBirth }),
-          ...(gender && { gender }),
-          ...(stateOfOrigin && { stateOfOrigin }),
-          ...(occupation && { occupation }),
-          ...(monthlySavingsCommitment && { monthlySavingsCommitment: Number(monthlySavingsCommitment) }),
-        });
-      }
-
-      // 2. Upload Document via FormData
+      // KYC document submission only — residential / personal information is
+      // captured once during the initial registration step (Register) and is
+      // persisted there, so it is intentionally NOT re-collected here.
       const formData = new FormData();
       formData.append("documentType", docType);
       formData.append("file", idFile);
@@ -119,53 +101,9 @@ export function KycUpload() {
       <div className="w-full max-w-md px-6 pt-20 flex-1 flex flex-col">
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Background Profile Details */}
-            <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3">
-              <h4 className="text-xs font-bold text-gray-900">Personal Information</h4>
-
-              <input
-                type="text"
-                placeholder="Residential Address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-4 py-3 bg-[#F8F9FB] border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#3B62EC]"
-              />
-
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="w-full px-3 py-3 bg-[#F8F9FB] border border-gray-200 rounded-xl text-xs text-gray-600 focus:outline-none focus:border-[#3B62EC]"
-                />
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full px-3 py-3 bg-[#F8F9FB] border border-gray-200 rounded-xl text-xs text-gray-600 focus:outline-none focus:border-[#3B62EC]"
-                >
-                  <option value="">Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="State of Origin"
-                  value={stateOfOrigin}
-                  onChange={(e) => setStateOfOrigin(e.target.value)}
-                  className="w-full px-3 py-3 bg-[#F8F9FB] border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#3B62EC]"
-                />
-                <input
-                  type="text"
-                  placeholder="Occupation"
-                  value={occupation}
-                  onChange={(e) => setOccupation(e.target.value)}
-                  className="w-full px-3 py-3 bg-[#F8F9FB] border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#3B62EC]"
-                />
-              </div>
-            </div>
+            {/* KYC document submission only — residential / personal information
+                is captured once during the initial registration step and is not
+                re-collected here. */}
 
             {/* Document Selection */}
             <div className="bg-white p-4 rounded-2xl bordern border-gray-200 space-y-3">
