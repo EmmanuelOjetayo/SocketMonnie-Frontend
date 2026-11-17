@@ -7,7 +7,7 @@ import { formatNaira } from "./format.js";
  * THE receipt engine.
  *
  * One canonical receipt model, formatted per transaction type, consumed by:
- *   - the six payment success pages (via components/success/SuccessReceipt)
+ *   - the payment success pages (via components/success/TransactionSuccessLayout)
  *   - the transaction history list (pages/user/Transactions)
  *   - the transaction detail screen (pages/user/TransactionDetail)
  *   - the PDF exporter (utils/receiptPdf)

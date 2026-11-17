@@ -1,10 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { SuccessReceipt } from "@/components/success/SuccessReceipt";
+import toast from "react-hot-toast";
+import TransactionSuccessLayout from "@/components/success/TransactionSuccessLayout";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 import { buildReceiptData } from "@/utils/receiptData";
+import { downloadReceiptPdf } from "@/utils/receiptPdf";
+import { shareReceipt } from "@/utils/receiptShare";
+import { formatNaira } from "@/utils/format";
 
 /**
  * Unified SocketMinutes success page.
@@ -13,7 +17,8 @@ import { buildReceiptData } from "@/utils/receiptData";
  * which reads the webhook/callback-settled MinuteTransaction record (and
  * reconciles with Flutterwave while still pending). location.state is only a
  * fallback for the placeholder — the green receipt appears only after the
- * backend confirms the contribution.
+ * backend confirms the contribution. Renders the exact same UI as every other
+ * payment result page (TransactionSuccessLayout).
  */
 export function MinutesSuccessPage() {
   const location = useLocation();
@@ -49,8 +54,6 @@ export function MinutesSuccessPage() {
   const monthsSettled =
     transaction?.monthsSettled != null ? Number(transaction.monthsSettled) : expectedMonths;
 
-  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
-
   // Canonical receipt model — built only from the backend-confirmed record.
   const receipt = useMemo(
     () => (transaction ? buildReceiptData(transaction) : null),
@@ -69,7 +72,7 @@ export function MinutesSuccessPage() {
           ? "Verifying with bank…"
           : "Pending confirmation",
       },
-      { label: "SocketMinutes Amount", value: `₦${confirmedAmount.toLocaleString()}` },
+      { label: "SocketMinutes Amount", value: formatNaira(confirmedAmount, { decimals: 2 }) },
       { label: "Months Settled", value: String(monthsSettled) },
       ...(isSuccess && transaction?.transactionId
         ? [{ label: "Transaction ID", value: String(transaction.transactionId) }]
@@ -101,6 +104,38 @@ export function MinutesSuccessPage() {
     ];
   }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
 
+  const handleDownload = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing your receipt...");
+    try {
+      await downloadReceiptPdf(receipt);
+      toast.success("Receipt downloaded", { id: toastId });
+    } catch (error) {
+      toast.error(error?.message || "Could not generate the PDF receipt", { id: toastId });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing receipt to share...");
+    try {
+      const result = await shareReceipt(receipt);
+      if (result?.cancelled) {
+        toast.dismiss(toastId);
+      } else if (result?.method === "clipboard") {
+        toast.success("Receipt summary copied to clipboard", { id: toastId });
+      } else if (result?.method === "native") {
+        toast.success("Receipt shared", { id: toastId });
+      } else {
+        toast.error("Sharing is not supported on this device", { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error?.message || "Could not share the receipt", { id: toastId });
+    }
+  };
+
+  const tone = isSuccess ? "success" : isFailed ? "failed" : "pending";
+
   const title = isSuccess
     ? "SocketMinutes Contribution Successful"
     : isFailed
@@ -116,15 +151,17 @@ export function MinutesSuccessPage() {
     : "We are confirming your contribution with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <SuccessReceipt
+    <div className="min-h-screen bg-[#F7F8FB] pb-8">
+      <TransactionSuccessLayout
         title={title}
-        amount={confirmedAmount}
+        amount={formatNaira(confirmedAmount, { decimals: 2 })}
         subtitle={subtitle}
-        details={details}
-        actions={actions}
-        status={receiptStatus}
-        receipt={receipt}
+        rows={details}
+        primaryActions={actions}
+        tone={tone}
+        showReceiptActions={Boolean(receipt)}
+        onDownload={handleDownload}
+        onShare={handleShare}
       />
     </div>
   );

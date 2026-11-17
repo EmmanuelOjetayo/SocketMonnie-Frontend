@@ -1,11 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { SuccessReceipt } from "@/components/success/SuccessReceipt";
+import toast from "react-hot-toast";
+import TransactionSuccessLayout from "@/components/success/TransactionSuccessLayout";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
 import { formatNaira } from "@/utils/format";
 import { buildReceiptData } from "@/utils/receiptData";
+import { downloadReceiptPdf } from "@/utils/receiptPdf";
+import { shareReceipt } from "@/utils/receiptShare";
 
 /**
  * Membership fee success page.
@@ -14,6 +17,7 @@ import { buildReceiptData } from "@/utils/receiptData";
  * which reads the webhook/callback-settled MembershipTransaction record (and
  * reconciles with Flutterwave while still pending). The green receipt appears
  * only after the backend confirms the fee — never on a browser redirect.
+ * Renders the exact same UI as every other payment result page (TransactionSuccessLayout).
  */
 export function MembershipSuccessPage() {
   const location = useLocation();
@@ -42,7 +46,6 @@ export function MembershipSuccessPage() {
   const confirmedAmount = transaction
     ? Number(transaction.amount || 0)
     : expectedAmount;
-  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
 
   // Canonical receipt model — built only from the backend-confirmed record.
   const receipt = useMemo(
@@ -62,7 +65,7 @@ export function MembershipSuccessPage() {
           ? "Verifying with bank…"
           : "Pending confirmation",
       },
-      { label: "Membership Fee", value: formatNaira(confirmedAmount) },
+      { label: "Membership Fee", value: formatNaira(confirmedAmount, { decimals: 2 }) },
       ...(isSuccess && transaction?.transactionId
         ? [{ label: "Transaction ID", value: String(transaction.transactionId) }]
         : []),
@@ -93,6 +96,38 @@ export function MembershipSuccessPage() {
     ];
   }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
 
+  const handleDownload = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing your receipt...");
+    try {
+      await downloadReceiptPdf(receipt);
+      toast.success("Receipt downloaded", { id: toastId });
+    } catch (error) {
+      toast.error(error?.message || "Could not generate the PDF receipt", { id: toastId });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing receipt to share...");
+    try {
+      const result = await shareReceipt(receipt);
+      if (result?.cancelled) {
+        toast.dismiss(toastId);
+      } else if (result?.method === "clipboard") {
+        toast.success("Receipt summary copied to clipboard", { id: toastId });
+      } else if (result?.method === "native") {
+        toast.success("Receipt shared", { id: toastId });
+      } else {
+        toast.error("Sharing is not supported on this device", { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error?.message || "Could not share the receipt", { id: toastId });
+    }
+  };
+
+  const tone = isSuccess ? "success" : isFailed ? "failed" : "pending";
+
   const title = isSuccess
     ? "Membership Payment Successful"
     : isFailed
@@ -106,15 +141,17 @@ export function MembershipSuccessPage() {
     : "We are confirming your membership fee with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
-      <SuccessReceipt
+    <div className="min-h-screen bg-[#F7F8FB] pb-8">
+      <TransactionSuccessLayout
         title={title}
-        amount={confirmedAmount}
+        amount={formatNaira(confirmedAmount, { decimals: 2 })}
         subtitle={subtitle}
-        details={details}
-        actions={actions}
-        status={receiptStatus}
-        receipt={receipt}
+        rows={details}
+        primaryActions={actions}
+        tone={tone}
+        showReceiptActions={Boolean(receipt)}
+        onDownload={handleDownload}
+        onShare={handleShare}
       />
     </div>
   );

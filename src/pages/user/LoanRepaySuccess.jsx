@@ -1,11 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { TopHeader } from "@/components/navigation/TopHeader";
-import { SuccessReceipt } from "@/components/success/SuccessReceipt";
+import toast from "react-hot-toast";
+import TransactionSuccessLayout from "@/components/success/TransactionSuccessLayout";
 import { ROUTES } from "@/constants/routes";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { getRememberedPaymentRef, clearRememberedPaymentRef } from "@/utils/paymentRef";
+import { formatNaira } from "@/utils/format";
 import { buildReceiptData } from "@/utils/receiptData";
+import { downloadReceiptPdf } from "@/utils/receiptPdf";
+import { shareReceipt } from "@/utils/receiptShare";
 
 /**
  * Loan repayment success page.
@@ -14,7 +17,8 @@ import { buildReceiptData } from "@/utils/receiptData";
  * which reads the webhook/callback-settled LoanTransaction record (and
  * reconciles with Flutterwave while still pending). location.state is only a
  * fallback for the placeholder — the green receipt appears only after the
- * backend confirms the repayment.
+ * backend confirms the repayment. Renders the exact same UI as every other
+ * payment result page (TransactionSuccessLayout).
  */
 export function LoanRepaySuccess() {
   const location = useLocation();
@@ -46,7 +50,6 @@ export function LoanRepaySuccess() {
     ? Number(transaction.amount || 0)
     : expectedAmount;
   const displayMethod = transaction?.method || expectedMethod || "bank_transfer";
-  const receiptStatus = isSuccess ? "successful" : isFailed ? "failed" : "processing";
 
   // Canonical receipt model — built only from the backend-confirmed record.
   const receipt = useMemo(
@@ -75,14 +78,14 @@ export function LoanRepaySuccess() {
           ? "Verifying with bank…"
           : "Pending confirmation",
       },
+      { label: "Loan Payment", value: formatNaira(confirmedAmount, { decimals: 2 }) },
+      {
+        label: "Outstanding Balance",
+        value: expectedRemainingBalance != null ? formatNaira(expectedRemainingBalance, { decimals: 2 }) : "—",
+      },
       {
         label: "Date & Time",
         value: transaction?.paidAt ? new Date(transaction.paidAt).toLocaleString() : "—",
-      },
-      { label: "Loan Payment", value: `₦${confirmedAmount.toLocaleString()}` },
-      {
-        label: "Outstanding Balance",
-        value: expectedRemainingBalance != null ? `₦${Number(expectedRemainingBalance).toLocaleString()}` : "—",
       },
       ...(isSuccess && transaction?.transactionId
         ? [{ label: "Transaction ID", value: String(transaction.transactionId) }]
@@ -109,6 +112,38 @@ export function LoanRepaySuccess() {
     ];
   }, [isSuccess, isFailed, isConfirming, refresh, navigate]);
 
+  const handleDownload = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing your receipt...");
+    try {
+      await downloadReceiptPdf(receipt);
+      toast.success("Receipt downloaded", { id: toastId });
+    } catch (error) {
+      toast.error(error?.message || "Could not generate the PDF receipt", { id: toastId });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!receipt) return;
+    const toastId = toast.loading("Preparing receipt to share...");
+    try {
+      const result = await shareReceipt(receipt);
+      if (result?.cancelled) {
+        toast.dismiss(toastId);
+      } else if (result?.method === "clipboard") {
+        toast.success("Receipt summary copied to clipboard", { id: toastId });
+      } else if (result?.method === "native") {
+        toast.success("Receipt shared", { id: toastId });
+      } else {
+        toast.error("Sharing is not supported on this device", { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error?.message || "Could not share the receipt", { id: toastId });
+    }
+  };
+
+  const tone = isSuccess ? "success" : isFailed ? "failed" : "pending";
+
   const title = isSuccess
     ? "Repayment Successful"
     : isFailed
@@ -122,16 +157,17 @@ export function LoanRepaySuccess() {
     : "We are confirming your repayment with the bank. This page updates automatically — you can close it and check back later.";
 
   return (
-    <div>
-      <TopHeader title={title} showBack={false} />
-      <SuccessReceipt
+    <div className="min-h-screen bg-[#F7F8FB] pb-8">
+      <TransactionSuccessLayout
         title={title}
-        amount={confirmedAmount}
+        amount={formatNaira(confirmedAmount, { decimals: 2 })}
         subtitle={subtitle}
-        details={details}
-        actions={actions}
-        status={receiptStatus}
-        receipt={receipt}
+        rows={details}
+        primaryActions={actions}
+        tone={tone}
+        showReceiptActions={Boolean(receipt)}
+        onDownload={handleDownload}
+        onShare={handleShare}
       />
     </div>
   );
