@@ -83,6 +83,6 @@ export async function requestWithdrawal({ amount, accountNumber, accountName, ba
 }
 
 export async function initializeMembershipFee() {
-  const res = await apiClient.post("/savings/membership-fee/initialize");
+  const res = await apiClient.post("/membership/initialize");
   return res;
 }

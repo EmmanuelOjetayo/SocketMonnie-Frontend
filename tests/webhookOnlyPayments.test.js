@@ -47,6 +47,8 @@ test("payment and savings service modules expose no callback verifier", () => {
   assert.ok(!payments.includes("paymentCallback"));
   assert.ok(!payments.includes("deposit/callback"));
   assert.ok(!savings.includes("verifyMembershipFee"));
+  assert.ok(savings.includes('apiClient.post("/membership/initialize")'));
+  assert.ok(!savings.includes("/savings/membership-fee/initialize"));
   assert.ok(!loans.includes("repay/verify"));
   assert.ok(payments.includes("Read-only authoritative transaction status"));
 });
