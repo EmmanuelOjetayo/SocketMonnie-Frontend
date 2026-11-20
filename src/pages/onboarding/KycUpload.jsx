@@ -11,7 +11,6 @@ export function KycUpload() {
 
   // KYC Fields (Backend `KYCUpload` sync)
   const [docType, setDocType] = useState("nin");
-  const [bvn, setBvn] = useState("");
   const [nin, setNin] = useState("");
   const [idFile, setIdFile] = useState(null);
 
@@ -34,7 +33,6 @@ export function KycUpload() {
       const formData = new FormData();
       formData.append("documentType", docType);
       formData.append("file", idFile);
-      if (bvn) formData.append("bvn", bvn);
       if (nin) formData.append("nin", nin);
 
       const res = await uploadKycDocument(formData);
@@ -132,14 +130,7 @@ export function KycUpload() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="BVN (11 digits) Optional"
-                value={bvn}
-                onChange={(e) => setBvn(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#3B62EC]"
-              />
+            <div>
               <input
                 type="text"
                 placeholder="NIN (11 digits)"

@@ -75,7 +75,6 @@ export function Register() {
     occupation: "",
     monthlySavingsCommitment: 5000,
     idType: "national_id",
-    bvn: "",
     nin: "",
     biometricsEnabled: false,
     password: "",
@@ -510,24 +509,6 @@ export function Register() {
                     );
                   })}
                 </div>
-              </div>
-
-              <div className="relative">
-                <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  name="bvn"
-                  placeholder="BVN Number"
-                  maxLength={11}
-                  value={formData.bvn}
-                  onChange={handleChange}
-                  className="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#3B62EC]"
-                />
-                <span
-                  className={`absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 ${
-                    formData.bvn.length === 11 ? "border-emerald-500 bg-emerald-500" : "border-gray-300"
-                  }`}
-                />
               </div>
 
               <div className="relative">

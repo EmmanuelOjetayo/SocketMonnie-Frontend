@@ -339,7 +339,6 @@ export function AdminMembers() {
                       <MemberField label="Bank" value={member.bankDetails?.bankName || member.bankName} />
                       <MemberField label="Account number" value={member.bankDetails?.accountNumber || member.accountNumber} mono />
                       <MemberField label="Account name" value={member.bankDetails?.accountName || member.accountName} />
-                      <MemberField label="BVN" value={member.bvn ? `****${String(member.bvn).slice(-4)}` : "Not provided"} />
                     </div>
                     {member.kycRejectionReason ? (
                       <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">

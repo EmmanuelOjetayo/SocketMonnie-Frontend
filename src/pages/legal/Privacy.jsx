@@ -18,7 +18,7 @@ const sections = [
       { text: "We collect information you provide directly when you register or use the Platform, including:" },
       { list: ["full name;", "email address;", "phone number;", "residential address; and", "other profile information you choose to add."] },
       { text: "We also collect information collected during account security and verification workflows, including:" },
-      { list: ["password and PIN (hashed);", "one-time passwords and authentication codes;", "identity documents such as National Identification Number or Bank Verification Number;", "and selfie verification images."] },
+      { list: ["password and PIN (hashed);", "one-time passwords and authentication codes;", "identity documents such as the National Identification Number (NIN);", "and selfie verification images."] },
       { text: "We may also collect limited technical and usage data required for security, fraud prevention and service improvement." },
     ],
   },

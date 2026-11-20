@@ -128,7 +128,6 @@ export function Profile() {
   // 3. KYC Upload
   const [kycData, setKycData] = useState({
     documentType: "nin",
-    bvn: "",
     nin: "",
   });
   const [kycFile, setKycFile] = useState(null);
@@ -175,7 +174,6 @@ export function Profile() {
       if (user.documentType) {
         setKycData({
           documentType: user.documentType || "nin",
-          bvn: user.bvn || "",
           nin: user.nin || "",
         });
       }
@@ -373,7 +371,7 @@ export function Profile() {
   }
 
   async function handleKycUpload() {
-    // Owner-approved KYC policy: NIN is mandatory, BVN optional.
+    // KYC policy: NIN is the sole national identity number collected.
     // Once approved, the KYC record is locked (read-only for the member).
     if (kycStatus === "approved") {
       toast.error("Your KYC has been approved and your details are now locked.");
@@ -392,7 +390,6 @@ export function Profile() {
     if (kycFile) formData.append("file", kycFile);
     formData.append("documentType", kycData.documentType);
     formData.append("nin", kycData.nin);
-    if (kycData.bvn) formData.append("bvn", kycData.bvn);
 
     try {
       const res = await uploadKycDocument(formData);
@@ -1068,14 +1065,6 @@ export function Profile() {
                   <option value="drivers_license">Driver's License</option>
                 </select>
               </div>
-
-              <Input
-                label="BVN (11 Digits)"
-                maxLength={11}
-                placeholder="Optional"
-                value={kycData.bvn}
-                onChange={(e) => setKycData({ ...kycData, bvn: e.target.value.replace(/\D/g, "") })}
-              />
 
               <Input
                 label="NIN (11 Digits) — Required"

@@ -26,7 +26,7 @@ export async function updatePersonalInfo(payload) {
 /**
  * ## Upload KYC Document
  * POST /api/user/kyc
- * Body: FormData { documentType, file, bvn?, nin? }
+ * Body: FormData { documentType, file, nin }
  * Response: { success, data: { documentType, documentUrl, kycStatus } }
  */
 export async function uploadKycDocument(formData) {
