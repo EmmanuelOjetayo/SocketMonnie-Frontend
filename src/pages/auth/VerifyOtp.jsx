@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { OtpInput } from "@/components/forms/OtpInput";
-import { verifyOtp } from "@/services/auth";
+import { resendOtp, verifyOtp } from "@/services/auth";
 import { uploadProfilePicture } from "@/services/user";
 import { normalizeUser } from "@/utils/userProfile";
 import { takePendingSelfie } from "@/utils/pendingSelfie";
@@ -21,8 +21,13 @@ export function VerifyOtp() {
 
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   async function handleVerify() {
+    if (destination === "your email") {
+      toast.error("We couldn't find your email address. Please go back and register again.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const response = await verifyOtp({
@@ -64,10 +69,19 @@ export function VerifyOtp() {
   }
 
   async function handleResend() {
+    if (destination === "your email") {
+      toast.error("We couldn't find your email address. Please go back and register again.");
+      return;
+    }
+    setIsResending(true);
     try {
-      toast.success("OTP resent to your email.");
-    } catch {
-      toast.error("Could not resend OTP.");
+      const res = await resendOtp({ email: destination });
+      setCode("");
+      toast.success(res?.message || "A new verification code has been sent. Please check your inbox or spam/junk folder.");
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || "Could not resend OTP. Please try again.");
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -103,6 +117,9 @@ export function VerifyOtp() {
         <p className="text-center text-sm font-semibold text-gray-700">
           Enter the code sent to <span className="text-[#3B62EC]">{destination}</span>
         </p>
+        <p className="mt-2 text-center text-xs font-medium text-red-700">
+          If you don't see the code in your inbox, please check your spam/junk folder.
+        </p>
 
         <div className="mt-8 mb-6 w-full flex justify-center">
           <OtpInput length={4} value={code} onChange={setCode} />
@@ -122,9 +139,10 @@ export function VerifyOtp() {
         <button
           type="button"
           onClick={handleResend}
-          className="mt-4 w-full text-center text-xs font-semibold text-[#3B62EC] hover:underline"
+          disabled={isResending || isSubmitting}
+          className="mt-4 w-full text-center text-xs font-semibold text-[#3B62EC] hover:underline disabled:opacity-60"
         >
-          Resend code
+          {isResending ? "Resending..." : "Resend code"}
         </button>
       </div>
     </div>

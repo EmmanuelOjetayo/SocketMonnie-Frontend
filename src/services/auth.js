@@ -45,6 +45,19 @@ export async function verifyOtp({ email, otp }) {
 }
 
 /**
+ * ## Resend Verification OTP
+ * POST /api/auth/resend-otp
+ * Body: { email }
+ * Response: { success, message }
+ */
+export async function resendOtp({ email }) {
+  if (USE_MOCK) {
+    return mockDelay({ success: true, message: "A new verification code has been sent to your email." });
+  }
+  return apiClient.post("/auth/resend-otp", { email });
+}
+
+/**
  * ## Forgot Password
  * POST /api/auth/forgot-password
  * Body: { email }

@@ -1,19 +1,21 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { OtpInput } from "@/components/forms/OtpInput";
-import { resetPassword } from "@/services/auth";
+import { forgotPassword, resetPassword } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
 
 export function ResetPassword() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const [email, setEmail] = useState(location.state?.email || "");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -37,10 +39,33 @@ export function ResetPassword() {
     }
   }
 
+  async function handleResend() {
+    const trimmedEmail = String(email || "").trim();
+    if (!trimmedEmail) {
+      toast.error("Please enter your email address to resend the code.");
+      return;
+    }
+    setIsResending(true);
+    try {
+      const res = await forgotPassword({ email: trimmedEmail });
+      if (res?.success === false) {
+        toast.error(res?.message || "Could not resend reset code. Please try again.");
+      } else {
+        setOtp("");
+        toast.success(res?.message || "A new reset OTP has been sent. Please check your inbox or spam/junk folder.");
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || "Could not resend reset code. Please try again.");
+    } finally {
+      setIsResending(false);
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-extrabold text-text-primary">Reset Password</h1>
       <p className="mt-1 text-sm text-text-secondary">Enter the OTP sent to your email and set a new password.</p>
+      <p className="mt-2 text-xs font-medium text-red-700">If you don't see the code in your inbox, please check your spam/junk folder.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <Input
@@ -54,6 +79,14 @@ export function ResetPassword() {
         <div>
           <label className="mb-1.5 block text-sm font-medium text-text-secondary">OTP Code</label>
           <OtpInput length={4} value={otp} onChange={setOtp} />
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={isResending || isSubmitting}
+            className="mt-2 text-xs font-semibold text-brand-600 hover:underline disabled:opacity-60"
+          >
+            {isResending ? "Resending..." : "Resend code"}
+          </button>
         </div>
         <Input
           label="New Password"

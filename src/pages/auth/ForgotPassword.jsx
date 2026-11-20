@@ -16,11 +16,24 @@ export function ForgotPassword() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await forgotPassword({ email });
+      const res = await forgotPassword({ email });
       setSent(true);
-      toast.success("Reset OTP sent to your email.");
+      toast.success(res?.message || "Reset OTP sent to your email. Please check your inbox or spam/junk folder if you don't see it.");
     } catch (error) {
-      toast.error(error?.data?.message || "Could not send reset link");
+      toast.error(error?.data?.message || "Could not send reset code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!email) return;
+    setIsSubmitting(true);
+    try {
+      const res = await forgotPassword({ email });
+      toast.success(res?.message || "A new reset OTP has been sent. Please check your inbox or spam/junk folder.");
+    } catch (error) {
+      toast.error(error?.data?.message || "Could not resend reset code. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -47,21 +60,32 @@ export function ForgotPassword() {
           <Button type="submit" fullWidth size="lg" isLoading={isSubmitting}>
             Send Reset OTP
           </Button>
+          <p className="text-xs font-medium text-text-secondary text-center">
+            If you don't see the code in your inbox, please check your spam/junk folder.
+          </p>
         </form>
       ) : (
-        <div className="mt-8 text-center">
-           <p className="text-xs font-bold text-red-900">Check SPAM for your OTP code</p>
+        <div className="mt-8 text-center space-y-3">
+          <p className="text-sm font-medium text-red-700">If you don't see the code in your inbox, please check your spam/junk folder.</p>
           <p className="text-sm text-text-secondary">
             Didn't receive the OTP?{" "}
             <button
               type="button"
-              onClick={() => setSent(false)}
-              className="font-semibold text-brand-600 hover:underline"
+              onClick={handleResend}
+              disabled={isSubmitting}
+              className="font-semibold text-brand-600 hover:underline disabled:opacity-60"
             >
-              Try again
+              {isSubmitting ? "Resending..." : "Resend code"}
             </button>
           </p>
-          <Link to={ROUTES.RESET_PASSWORD} className="mt-4 inline-block text-sm font-semibold text-brand-600 hover:underline">
+          <button
+            type="button"
+            onClick={() => setSent(false)}
+            className="block w-full text-sm font-semibold text-text-secondary hover:underline"
+          >
+            Use a different email
+          </button>
+          <Link to={ROUTES.RESET_PASSWORD} state={{ email }} className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:underline">
             Enter OTP and reset password
           </Link>
         </div>

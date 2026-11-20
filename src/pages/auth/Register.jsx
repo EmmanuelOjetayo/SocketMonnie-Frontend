@@ -197,7 +197,7 @@ export function Register() {
 
     try {
       const response = await register(payload);
-      toast.success(response?.message || "Account created! OTP sent to email.");
+      toast.success(response?.message || "Account created! OTP sent to your email. Please check your inbox or spam/junk folder if you don't see it.");
 
       // Stash the selfie for upload right after OTP verification (auth
       // cookie only exists after VerifyOtp). IndexedDB persists the File
@@ -694,9 +694,8 @@ export function Register() {
                   <ShieldAlert className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                    <p className="text-xs font-bold text-red-900">Check SPAM for your OTP code</p>
-                  <p className="text-xs font-bold text-gray-900">Your security is our priority</p>
-                   
+                  <p className="text-xs font-bold text-red-900">If you don't see your OTP in your inbox, please check your spam/junk folder.</p>
+                  <p className="text-xs font-bold text-gray-900 mt-1">Your security is our priority</p>
                   <p className="text-[11px] text-gray-600 mt-0.5">Your transactions and data are secure</p>
                 </div>
               </div>

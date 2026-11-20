@@ -1244,6 +1244,9 @@ export function Profile() {
                   Forgot your Transaction PIN? Enter the email address registered to your account and we&apos;ll send a
                   one-time reset code to it.
                 </p>
+                <p className="text-xs font-medium text-red-700">
+                  If you don't see the code in your inbox, please check your spam/junk folder.
+                </p>
                 <Input
                   label="Registered Email"
                   type="email"
@@ -1277,9 +1280,20 @@ export function Profile() {
                 <p className="text-sm text-gray-600">
                   Enter the 4-digit reset code sent to {forgotEmail || "your email"} and choose a new Transaction PIN.
                 </p>
+                <p className="text-xs font-medium text-red-700">
+                  If you don't see the code in your inbox, please check your spam/junk folder.
+                </p>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-text-secondary">OTP Code</label>
                   <OtpInput length={4} value={resetOtp} onChange={setResetOtp} />
+                  <button
+                    type="button"
+                    onClick={handleForgotPinSubmit}
+                    disabled={isSendingResetOtp || isSavingPin}
+                    className="mt-2 text-xs font-semibold text-[#1d2d6d] hover:underline disabled:opacity-60"
+                  >
+                    {isSendingResetOtp ? "Resending..." : "Resend code"}
+                  </button>
                 </div>
                 <Input
                   label="New Transaction PIN"

@@ -62,7 +62,7 @@ export function PersonalInfo() {
 
     try {
       const response = await register(registerPayload);
-      toast.success(response?.message || "Account created! OTP sent to email.");
+      toast.success(response?.message || "Account created! OTP sent to your email. Please check your inbox or spam/junk folder if you don't see it.");
 
       // Save email for OTP page recovery
       localStorage.setItem("user_email", cached.email);
