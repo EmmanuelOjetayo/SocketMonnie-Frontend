@@ -7,7 +7,7 @@ import { LoadingState } from "@/components/feedback/LoadingState";
 import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
 import { getActiveLoan, getRepaymentSchedule } from "@/services/loans";
-import { initiateLoanRepayment, verifyLoanRepayment } from "@/services/payments";
+import { initiateLoanRepayment } from "@/services/payments";
 import { calculateFlutterwaveFee } from "@/utils/flutterwaveFee";
 import { payWithFlutterwave, isPaymentWindowClosed, isSuccessfulFlutterwaveResponse } from "@/utils/flutterwaveCheckout";
 import { settleAndNavigate } from "@/utils/paymentResultNav";
@@ -43,6 +43,7 @@ export function LoanRepay() {
   const totalRepayable = Number(loan.totalRepayable || 0);
   const progress = totalRepayable ? Math.min(100, Math.round((paidAmount / totalRepayable) * 100)) : 0;
   const paymentAmount = Number(amount) || 0;
+  const excessAmount = Math.max(0, paymentAmount - Number(loan.remainingBalance || 0));
   const { fee, totalPayable } = calculateFlutterwaveFee(paymentAmount);
 
   async function handleContinue() {
@@ -84,7 +85,6 @@ export function LoanRepay() {
           navigate,
           route: ROUTES.LOAN_COMPLETE_SUCCESS,
           reference: response?.tx_ref || response?.reference || reference,
-          verify: () => Promise.resolve(),
         });
         return;
       }
@@ -94,11 +94,9 @@ export function LoanRepay() {
       checkoutTxId = transactionId;
 
       /*
-       * The checkout callback is only a navigation hint — the webhook (or the
-       * background verify fired below) settles the repayment server-side, and
-       * CompleteLoanRepayment polls GET /api/payments/status/:reference — the
-       * backend is the source of truth. Navigate immediately; never block the
-       * customer on a synchronous verify round-trip.
+       * The checkout callback is only a navigation hint. Only the signed webhook
+       * settles the repayment; CompleteLoanRepayment polls the read-only
+       * GET /api/payments/status/:reference for the authoritative outcome.
        */
       toast.success("Repayment received — confirming your loan repayment…");
       setIsSubmitting(false);
@@ -106,14 +104,6 @@ export function LoanRepay() {
         navigate,
         route: ROUTES.LOAN_COMPLETE_SUCCESS,
         reference: responseReference,
-        verify: () =>
-          verifyLoanRepayment({
-            loanId: loan._id,
-            reference: responseReference,
-            tx_ref: responseReference,
-            transaction_id: transactionId,
-            transactionId: transactionId,
-          }),
         state: {
           amount: paymentAmount,
           method: selectedMethod,
@@ -138,14 +128,6 @@ export function LoanRepay() {
           navigate,
           route: ROUTES.LOAN_COMPLETE_SUCCESS,
           reference: checkoutRef,
-          verify: () =>
-            verifyLoanRepayment({
-              loanId: loan._id,
-              reference: checkoutRef,
-              tx_ref: checkoutRef,
-              transaction_id: checkoutTxId,
-              transactionId: checkoutTxId,
-            }),
           state: {
             amount: paymentAmount,
             method: selectedMethod,

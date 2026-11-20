@@ -102,10 +102,9 @@ export async function cancelLoanApplication(loanId, reason = "") {
 }
 
 /**
- * NOTE: Loan repayment is a two-step gateway flow served from
- * services/payments.js, not this module:
- *   1. POST /api/loans/repay/initialize  (initiateLoanRepayment — Flutterwave checkout payload)
- *   2. POST /api/loans/repay/verify      (verifyLoanRepayment — settles against webhook proof)
- * This module intentionally has no repay function; no POST /api/loans/repay
- * endpoint exists on the backend.
+ * NOTE: Loan repayment checkout is initiated from services/payments.js:
+ *   POST /api/loans/repay/initialize (initiateLoanRepayment — Flutterwave payload)
+ * Settlement happens only through the signed Flutterwave webhook; there is no
+ * browser-triggered verify endpoint. This module intentionally has no repay
+ * function; no POST /api/loans/repay endpoint exists on the backend.
  */

@@ -86,8 +86,3 @@ export async function initializeMembershipFee() {
   const res = await apiClient.post("/savings/membership-fee/initialize");
   return res;
 }
-
-export async function verifyMembershipFee({ reference, tx_ref, transaction_id }) {
-  const res = await apiClient.post("/savings/membership-fee/verify", { reference, tx_ref, transaction_id });
-  return res;
-}

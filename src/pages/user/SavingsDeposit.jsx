@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import {
   initiateDeposit,
-  verifyDeposit,
   getMinutesDue,
 } from "@/services/payments";
 
@@ -309,11 +308,10 @@ export function SavingsDeposit() {
       ];
 
       /*
-       * The checkout callback is only a navigation hint. The webhook (or the
-       * background verify fired below) settles the deposit server-side, and
-       * DepositSuccess polls GET /api/payments/status/:reference — the backend
-       * is the source of truth. Navigate immediately; the callback response is
-       * never displayed as proof of payment.
+       * The checkout callback is only a navigation hint. Only the signed webhook
+       * settles the deposit server-side; DepositSuccess polls the read-only
+       * GET /api/payments/status/:reference. Never display callback data as
+       * proof of payment.
        */
       toast.success("Payment received — confirming your deposit…");
       setIsSubmitting(false);
@@ -321,12 +319,6 @@ export function SavingsDeposit() {
         navigate,
         route: `${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`,
         reference,
-        verify: () =>
-          verifyDeposit({
-            reference,
-            tx_ref: reference,
-            transaction_id: transactionId,
-          }),
       });
     } catch (error) {
       if (isPaymentWindowClosed(error)) {
@@ -356,12 +348,6 @@ export function SavingsDeposit() {
           navigate,
           route: `${ROUTES.PAYMENTS_SAVINGS_SUCCESS}?${params.join("&")}`,
           reference: paymentRef,
-          verify: () =>
-            verifyDeposit({
-              reference: paymentRef,
-              tx_ref: paymentRef,
-              transaction_id: null,
-            }),
         });
       } else {
         console.error("Deposit Error:", error);

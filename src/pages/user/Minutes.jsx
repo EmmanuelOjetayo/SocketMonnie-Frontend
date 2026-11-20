@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/Button";
 
 import {
   initializeMinutesContribution,
-  verifyMinutesContribution,
 } from "@/services/payments";
 
 import { formatNaira } from "@/utils/format";
@@ -184,12 +183,6 @@ export function Minutes() {
             navigate,
             route: ROUTES.MINUTES_SUCCESS,
             reference,
-            verify: () =>
-              verifyMinutesContribution({
-                reference,
-                tx_ref: reference,
-                transaction_id: null,
-              }),
             state: {
               amount: totalPayable,
               reference,
@@ -216,12 +209,6 @@ export function Minutes() {
           navigate,
           route: ROUTES.MINUTES_SUCCESS,
           reference: paymentReference,
-          verify: () =>
-            verifyMinutesContribution({
-              reference: paymentReference,
-              tx_ref: paymentReference,
-              transaction_id: transactionId,
-            }),
           state: {
             amount: totalPayable,
             reference: paymentReference,
@@ -232,11 +219,9 @@ export function Minutes() {
       }
 
       /*
-       * The checkout callback is only a navigation hint — the webhook (or the
-       * background verify fired below) settles the payment server-side, and
-       * the success page polls GET /api/payments/status/:reference to display
-       * the authoritative outcome. Navigate immediately; never block the
-       * customer on a synchronous verify round-trip.
+       * The checkout callback is only a navigation hint. Only the signed webhook
+       * settles the payment; the success page polls the read-only
+       * GET /api/payments/status/:reference for the authoritative outcome.
        */
       toast.success(
         "Payment received — confirming your SocketMinutes contribution…"
@@ -246,12 +231,6 @@ export function Minutes() {
         navigate,
         route: ROUTES.MINUTES_SUCCESS,
         reference: paymentReference,
-        verify: () =>
-          verifyMinutesContribution({
-            reference: paymentReference,
-            tx_ref: paymentReference,
-            transaction_id: transactionId,
-          }),
         state: {
           amount: totalPayable,
           reference: paymentReference,

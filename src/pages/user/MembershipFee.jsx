@@ -2,7 +2,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { ArrowLeft, ShieldCheck, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { initializeMembershipFee, verifyMembershipFee } from "@/services/savings";
+import { initializeMembershipFee } from "@/services/savings";
 import { formatNaira } from "@/utils/format";
 import { ROUTES } from "@/constants/routes";
 import { useNavigate } from "react-router-dom";
@@ -69,12 +69,6 @@ export function MembershipFee() {
           navigate,
           route: ROUTES.MEMBERSHIP_SUCCESS,
           reference: checkoutRef,
-          verify: () =>
-            verifyMembershipFee({
-              reference: checkoutRef,
-              tx_ref: checkoutRef,
-              transaction_id: checkoutTxId,
-            }),
           state: {
             amount: totalPayable,
             reference: checkoutRef,
@@ -84,10 +78,9 @@ export function MembershipFee() {
       }
 
       /*
-       * The checkout callback is only a navigation hint. The webhook (or the
-       * background verify fired below) marks the fee paid server-side, and
-       * MembershipSuccessPage polls GET /api/payments/status/:reference — the
-       * backend is the source of truth. Navigate immediately.
+       * The checkout callback is only a navigation hint. Only the signed webhook
+       * marks the fee paid server-side; MembershipSuccessPage polls the read-only
+       * GET /api/payments/status/:reference. Navigate immediately.
        */
       toast.success("Payment received - confirming your membership...");
       setIsSubmitting(false);
@@ -95,12 +88,6 @@ export function MembershipFee() {
         navigate,
         route: ROUTES.MEMBERSHIP_SUCCESS,
         reference: checkoutRef,
-        verify: () =>
-          verifyMembershipFee({
-            reference: checkoutRef,
-            tx_ref: checkoutRef,
-            transaction_id: checkoutTxId,
-          }),
         state: {
           amount: totalPayable,
           reference: checkoutRef,
@@ -120,12 +107,6 @@ export function MembershipFee() {
           navigate,
           route: ROUTES.MEMBERSHIP_SUCCESS,
           reference: checkoutRef,
-          verify: () =>
-            verifyMembershipFee({
-              reference: checkoutRef,
-              tx_ref: checkoutRef,
-              transaction_id: null,
-            }),
           state: {
             amount: totalPayable,
             reference: checkoutRef,

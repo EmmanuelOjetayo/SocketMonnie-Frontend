@@ -41,26 +41,17 @@ export async function initiateDeposit(amount, method) {
     method,
   });
 }
-// services/payments.js
-
-export async function verifyDeposit(data) {
-  return apiClient.post(
-    "/payments/deposit/verify",
-    data
-  );
-}
 
 /**
- * Authoritative transaction status for success pages.
+ * Read-only authoritative transaction status for success pages.
  *
- * The backend is the source of truth: this endpoint reads the webhook/callback
- * settled records and, while a payment is still pending, triggers one
- * idempotent provider reconciliation (same handlers the webhook uses) so a
- * missed webhook settles server-side and the page converges on the real
- * outcome. Never use location.state or a browser redirect as proof of payment.
+ * The signed Flutterwave webhook alone settles payments. This endpoint only
+ * reads the webhook-written record; it never verifies with the provider,
+ * reconciles, or mutates financial state. Pending stays pending until the
+ * webhook arrives. Never use browser redirect data as proof of payment.
  *
  * Response: { success, data: { found, reference, type, status, amount,
- *   method, transactionId, paidAt, monthsSettled, reconciled } }
+ *   method, transactionId, paidAt, monthsSettled } }
  * status: "successful" | "pending" | "failed"
  */
 export async function getPaymentStatus(reference) {
@@ -87,64 +78,11 @@ export async function initiateLoanRepayment({ loanId, paymentAmount }) {
   throw error;
 }}
 
-export async function verifyLoanRepayment({
-  loanId,
-  reference,
-  transactionId,
-  tx_ref, // backward-compat field name during rollout
-}) {
-  return await apiClient.post("/loans/repay/verify", {
-    loanId,
-    reference,
-    transactionId,
-    tx_ref: reference, // backward-compat field name during rollout
-  });
-}
-
-/**
- * Legacy gateway-callback checker (GET /api/payments/deposit/callback).
- * NOTE: this endpoint is an informational convenience only — the source of
- * truth for settlement remains POST /api/payments/deposit/verify, which the
- * DepositSuccess page calls. Failures must propagate; previously this
- * swallowed errors and fabricated status:"success", which falsely reports a
- * payment as successful without any backend proof.
- */
-export async function paymentCallback(reference) {
-  return apiClient.get(`/payments/deposit/callback?reference=${reference}`);
-}
-
 export async function getMinutesDue() { const res = await apiClient.get( "/payments/minutes/due" ); return res?.data || res; }
 
 export async function initializeMinutesContribution() {
   const res = await apiClient.post(
     "/payments/minutes/initialize"
-  );
-
-  return res?.data || res;
-}
-
-/**
- * Verify monthly SocketMinutes contribution.
- *
- * POST /api/payment/minutes/verify
- *
- * Body:
- * {
- *   reference
- * }
- */
-export async function verifyMinutesContribution({
-  reference,
-  tx_ref,
-  transaction_id,
-}) {
-  const res = await apiClient.post(
-    "/payments/minutes/verify",
-    {
-      reference,
-      tx_ref,
-      transaction_id,
-    }
   );
 
   return res?.data || res;
