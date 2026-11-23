@@ -13,7 +13,10 @@ import {
   ChevronRight,
   Wallet,
   ArrowUpRightFromSquare,
-  Target
+  Target,
+  XCircle,
+  CheckCircle2,
+  ShieldCheck
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { TransactionRow } from "@/components/cards/TransactionRow";
@@ -28,6 +31,7 @@ import { ROUTES } from "@/constants/routes";
 export function Savings() {
   const navigate = useNavigate();
   const [showBalance, setShowBalance] = useState(true);
+  const [showStreakModal, setShowStreakModal] = useState(false);
   const [page] = useState(1);
 
   // Data Fetching
@@ -64,32 +68,16 @@ export function Savings() {
       .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   }, [summary, historyList]);
 
-  // 3. Dynamic 6-Month Rolling Streak Calculation
+  // 3. Authoritative 6-month qualifying savings streak (backend source of truth).
+  const savingsQualification = summary?.savingsQualification || eligibility?.savingsQualification || eligibility?.monthlyQualification || null;
+  const qualificationMonths = savingsQualification?.months || [];
+  const qualificationMinMonthly = savingsQualification?.minimumMonthlyTarget ?? savingsQualification?.minimumMonthlyRequired ?? 5000;
   const streakMonths = useMemo(() => {
-    if (summary?.streakMonths !== undefined) return Math.min(summary.streakMonths, 6);
-    if (!historyList.length) return 0;
-
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
-
-    const activeMonths = new Set();
-
-    historyList.forEach((tx) => {
-      const isDeposit = tx.type === "deposit" || tx.direction === "credit";
-      const isCompleted = !tx.status || tx.status === "completed" || tx.status === "successful";
-
-      if (isDeposit && isCompleted) {
-        const txDate = new Date(tx.createdAt || tx.date);
-        if (txDate >= sixMonthsAgo) {
-          const monthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, "0")}`;
-          activeMonths.add(monthKey);
-        }
-      }
-    });
-
-    return Math.min(activeMonths.size, 6);
-  }, [summary?.streakMonths, historyList]);
+    if (typeof summary?.streakMonths === "number") return Math.min(summary.streakMonths, 6);
+    if (typeof savingsQualification?.qualifyingMonths === "number") return Math.min(savingsQualification.qualifyingMonths, 6);
+    if (typeof eligibility?.monthsCount === "number") return Math.min(eligibility.monthsCount, 6);
+    return 0;
+  }, [summary?.streakMonths, savingsQualification?.qualifyingMonths, eligibility?.monthsCount]);
 
   // Loan Eligibility Progress
   const monthsCount = eligibility?.monthsCount ?? streakMonths;
@@ -297,9 +285,10 @@ export function Savings() {
         </Card>
 
         {/* 5. Savings Streak Card (Max 6 Months) */}
-        <div 
-          onClick={() => navigate(ROUTES.PROFILE)}
-          className="rounded-2xl p-3.5 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition-transform"
+        <button
+          type="button"
+          onClick={() => setShowStreakModal(true)}
+          className="w-full rounded-2xl p-3.5 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition-transform text-left"
            style={{
         background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)",
       }}
@@ -313,12 +302,80 @@ export function Savings() {
               <p className="text-xs font-extrabold text-[#dee3f9] mt-0.5">
                 {streakMonths} / 6 {streakMonths === 1 ? "Month" : "Months"}
               </p>
+              <p className="text-[10px] text-[#dee3f9]/80 mt-0.5">Tap to view monthly breakdown</p>
             </div>
           </div>
           <ChevronRight className="size-5 text-[#dee3f9]" />
-        </div>
+        </button>
 
       </div>
+
+      {showStreakModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-5 text-[#122271]" />
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Savings Streak Breakdown</h3>
+                  <p className="text-[11px] text-gray-500">
+                    Last 6 months • Minimum {formatNaira(qualificationMinMonthly)}/month
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStreakModal(false)}
+                className="p-1 rounded-full text-gray-400 hover:bg-gray-100"
+              >
+                <XCircle className="size-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-[#F4F6FB] border border-[#E3E8F5] p-3 text-xs text-[#32417B]">
+              <p className="font-semibold">Qualifying months: {streakMonths} / 6</p>
+              <p className="text-[11px] text-gray-600 mt-0.5">A month qualifies when eligible deposits minus eligible withdrawals meet the minimum monthly requirement.</p>
+            </div>
+
+            <div className="space-y-2">
+              {qualificationMonths.length > 0 ? qualificationMonths.map((m) => (
+                <div key={`${m.year}-${m.month}`} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">{m.label || `${m.month}/${m.year}`}</p>
+                      <p className="text-[11px] text-gray-500">Required: {formatNaira(m.minimumRequired ?? 0)}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${m.qualified ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                      {m.qualified ? "Qualified" : "Not qualified"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                    <div><p className="text-gray-500">Deposits</p><p className="font-semibold text-gray-900">{formatNaira(m.totalDeposits ?? 0)}</p></div>
+                    <div><p className="text-gray-500">Withdrawals</p><p className="font-semibold text-gray-900">{formatNaira(m.totalWithdrawals ?? 0)}</p></div>
+                    <div><p className="text-gray-500">Net</p><p className={`font-bold ${(m.netSavings ?? 0) >= 0 ? "text-gray-900" : "text-red-600"}`}>{formatNaira(m.netSavings ?? 0)}</p></div>
+                  </div>
+                  <div className="mt-2 flex items-start gap-1.5 text-[11px]">
+                    {m.qualified ? <CheckCircle2 className="size-3.5 text-emerald-600 mt-0.5 shrink-0" /> : <XCircle className="size-3.5 text-red-500 mt-0.5 shrink-0" />}
+                    <p className="text-gray-600">{m.reason || (m.qualified ? "Counts toward your 6-month savings streak." : "Does not count toward your 6-month savings streak.")}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-xl border border-dashed border-gray-200 p-4 text-center text-xs text-gray-500">
+                  No monthly qualification breakdown available yet.
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowStreakModal(false)}
+              className="w-full py-3 bg-[#122271] text-white text-xs font-bold rounded-xl active:scale-[0.99]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
