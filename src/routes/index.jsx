@@ -23,7 +23,6 @@ import { ResetPassword } from "@/pages/auth/ResetPassword";
 // Onboarding
 import { PersonalInfo } from "@/pages/onboarding/PersonalInfo";
 import { AccountCreatedSuccess } from "@/pages/user/AccountCreatedSuccess";
-import { KycUpload } from "@/pages/onboarding/KycUpload";
 import { CreatePin } from "@/pages/onboarding/CreatePin";
 import { Biometrics } from "@/pages/onboarding/Biometrics";
 
@@ -104,7 +103,6 @@ export const router = createBrowserRouter([
     element: <OnboardingLayout />,
     children: [
       { path: ROUTES.ONBOARDING_PERSONAL_INFO, element: <PersonalInfo /> },
-      { path: ROUTES.ONBOARDING_KYC, element: <KycUpload /> },
       { path: ROUTES.ONBOARDING_CREATE_PIN, element: <CreatePin /> },
       { path: ROUTES.ONBOARDING_BIOMETRICS, element: <Biometrics /> },
       { path: ROUTES.ONBOARDING_SUCCESS, element: <AccountCreatedSuccess /> },

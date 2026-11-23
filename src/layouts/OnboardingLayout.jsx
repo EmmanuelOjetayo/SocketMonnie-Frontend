@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 
-/** Wraps post-signup onboarding: personal info, KYC, PIN, biometrics. */
+/** Wraps post-signup onboarding: personal info, PIN and biometrics. */
 export function OnboardingLayout() {
   return (
     <div id="app-shell">

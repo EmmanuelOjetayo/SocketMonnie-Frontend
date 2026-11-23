@@ -19,7 +19,8 @@ test("no frontend form or legal copy asks for BVN", () => {
   const sources = [
     "src/pages/user/Profile.jsx",
     "src/pages/auth/Register.jsx",
-    "src/pages/onboarding/KycUpload.jsx",
+    "src/pages/auth/VerifyOtp.jsx",
+    "src/utils/pendingKyc.js",
     "src/pages/onboarding/PersonalInfo.jsx",
     "src/services/auth.js",
     "src/services/user.js",
@@ -34,10 +35,11 @@ test("no frontend form or legal copy asks for BVN", () => {
   }
 });
 
-test("NIN remains the national identity input across registration and KYC", () => {
+test("NIN remains the national identity input through registration and OTP handoff", () => {
   assert.ok(read("src/pages/user/Profile.jsx").includes('label="NIN (11 Digits)'));
   assert.ok(read("src/pages/auth/Register.jsx").includes('name="nin"'));
-  assert.ok(read("src/pages/onboarding/KycUpload.jsx").includes('placeholder="NIN (11 digits)"'));
+  assert.ok(read("src/pages/auth/Register.jsx").includes('national_id: "nin"'));
+  assert.ok(read("src/pages/auth/VerifyOtp.jsx").includes('kycFormData.append("nin", pendingKyc.nin || "")'));
   assert.ok(read("src/services/user.js").includes("nin"));
 });
 
@@ -50,14 +52,16 @@ test("registration payload contains no BVN field", () => {
   assert.ok(payload.includes("termsAccepted: formData.termsAccepted === true"));
 });
 
-test("onboarding KYC submission sends NIN only, never BVN", () => {
-  const kycSource = read("src/pages/onboarding/KycUpload.jsx");
-  const formData = extractBlock(kycSource, "const formData = new FormData();", "uploadKycDocument(formData);");
+test("OTP submission sends the retained NIN only, never BVN", () => {
+  const otpSource = read("src/pages/auth/VerifyOtp.jsx");
+  const formData = extractBlock(
+    otpSource,
+    "const kycFormData = new FormData();",
+    "uploadKycDocument(kycFormData);",
+  );
 
   assert.ok(!/\bbvn\b/i.test(formData));
-  assert.ok(formData.includes('formData.append("documentType", docType)'));
-  assert.ok(formData.includes('formData.append("nin", nin)'));
-
-  const docOptions = extractBlock(kycSource, "{ id: \"nin\"", "].map((type) =>");
-  assert.ok(!/\bbvn\b/i.test(docOptions));
+  assert.ok(formData.includes('kycFormData.append("documentType", pendingKyc.documentType || "nin")'));
+  assert.ok(formData.includes('kycFormData.append("nin", pendingKyc.nin || "")'));
+  assert.ok(formData.includes('kycFormData.append("file", pendingKyc.file)'));
 });

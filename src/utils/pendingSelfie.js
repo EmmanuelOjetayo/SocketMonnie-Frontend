@@ -12,7 +12,8 @@
  */
 
 const DB_NAME = "socketmoni-onboarding";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const STORE_NAMES = ["pending_selfie", "pending_kyc"];
 const STORE_NAME = "pending_selfie";
 const RECORD_KEY = "selfie";
 
@@ -23,8 +24,12 @@ function openDatabase() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
+      // Both stores are created on upgrade so whichever onboarding utility
+      // opens the shared DB first establishes a consistent schema.
+      for (const name of STORE_NAMES) {
+        if (!db.objectStoreNames.contains(name)) {
+          db.createObjectStore(name);
+        }
       }
     };
     request.onsuccess = () => resolve(request.result);

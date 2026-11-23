@@ -14,7 +14,6 @@ export const ROUTES = {
 
   // Onboarding (post-signup, pre-dashboard)
   ONBOARDING_PERSONAL_INFO: "/onboarding/personal-info",
-  ONBOARDING_KYC: "/onboarding/kyc",
   ONBOARDING_CREATE_PIN: "/onboarding/create-pin",
   ONBOARDING_BIOMETRICS: "/onboarding/biometrics", // optional
   ONBOARDING_SUCCESS: "/onboarding/success",

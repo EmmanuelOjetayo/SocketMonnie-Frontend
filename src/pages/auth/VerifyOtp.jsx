@@ -4,9 +4,10 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { OtpInput } from "@/components/forms/OtpInput";
 import { resendOtp, verifyOtp } from "@/services/auth";
-import { uploadProfilePicture } from "@/services/user";
+import { uploadKycDocument, uploadProfilePicture } from "@/services/user";
 import { normalizeUser } from "@/utils/userProfile";
 import { takePendingSelfie } from "@/utils/pendingSelfie";
+import { setPendingKyc, takePendingKyc } from "@/utils/pendingKyc";
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/context/AuthContext";
 import logo from "@/assets/logo.png";
@@ -59,8 +60,37 @@ export function VerifyOtp() {
         }
       }
 
-      // Navigate straight to KYC
-      navigate(ROUTES.ONBOARDING_KYC || "/onboarding/kyc");
+      // Submit the KYC document captured in Register. The auth cookie now
+      // exists, so the working protected /user/kyc endpoint accepts it.
+      // A failed upload keeps the payload for retry but never blocks PIN setup.
+      const pendingKyc = await takePendingKyc();
+      if (pendingKyc?.file) {
+        const kycFormData = new FormData();
+        kycFormData.append("documentType", pendingKyc.documentType || "nin");
+        kycFormData.append("file", pendingKyc.file);
+        kycFormData.append("nin", pendingKyc.nin || "");
+
+        try {
+          const kycRes = await uploadKycDocument(kycFormData);
+          if (kycRes?.success === false) {
+            throw new Error(kycRes?.message || "KYC upload failed");
+          }
+          toast.success("Identity document uploaded.");
+        } catch (kycErr) {
+          console.error("KYC upload failed:", kycErr);
+          try {
+            await setPendingKyc(pendingKyc);
+          } catch (restoreErr) {
+            console.error("Could not retain KYC for retry:", restoreErr);
+          }
+          toast.error("Identity document could not be uploaded — you can try again later.");
+        }
+      }
+
+      // OTP is complete and the single KYC step has been submitted (or
+      // reported). Go straight to PIN setup — no second KYC screen.
+      localStorage.removeItem("user_email");
+      navigate(ROUTES.ONBOARDING_CREATE_PIN || "/onboarding/create-pin", { replace: true });
     } catch (error) {
       toast.error(error?.data?.message || error?.message || "Invalid or expired OTP");
     } finally {
@@ -107,7 +137,7 @@ export function VerifyOtp() {
 
             <div className="relative z-10 flex flex-col items-center opacity-40">
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-gray-100 text-gray-500 border border-gray-200 font-bold">3</div>
-              <span className="text-[10px] font-semibold text-gray-500 mt-2">KYC Setup</span>
+              <span className="text-[10px] font-semibold text-gray-500 mt-2">Create PIN</span>
             </div>
           </div>
         </div>

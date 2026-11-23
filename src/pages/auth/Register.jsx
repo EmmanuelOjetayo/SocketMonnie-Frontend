@@ -31,6 +31,7 @@ import logo from "@/assets/logo.png";
 import { register } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
 import { setPendingSelfie } from "@/utils/pendingSelfie";
+import { setPendingKyc } from "@/utils/pendingKyc";
 import { isEligibleDob, getMaxDob } from "@/utils/ageValidation";
 
 const STEPS = [
@@ -45,6 +46,14 @@ const ID_TYPES = [
   { value: "drivers_license", label: "Driver's License", icon: Car },
   { value: "voters_card", label: "Voter's Card", icon: FileCheck },
 ];
+
+// The prototype calls this "National ID", but the KYC API validates NIN as
+// the canonical document type. Translate once at the handoff boundary.
+const KYC_DOCUMENT_TYPE = {
+  national_id: "nin",
+  drivers_license: "drivers_license",
+  voters_card: "voters_card",
+};
 
 export function Register() {
   const navigate = useNavigate();
@@ -102,6 +111,14 @@ export function Register() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // NIN is digits-only and capped at the backend's 11-character limit.
+    if (name === "nin") {
+      const digits = String(value).replace(/\D/g, "").slice(0, 11);
+      setFormData((prev) => ({ ...prev, nin: digits }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -136,6 +153,10 @@ export function Register() {
   };
 
   const validateKyc = () => {
+    if (!/^\d{11}$/.test(formData.nin)) {
+      toast.error("Please enter a valid 11-digit NIN");
+      return false;
+    }
     if (!idFile) {
       toast.error("Please upload the front of your ID card");
       return false;
@@ -207,6 +228,21 @@ export function Register() {
           await setPendingSelfie(selfieFile);
         } catch (selfieErr) {
           console.error("Could not stash selfie:", selfieErr);
+        }
+      }
+
+      // Stash the single KYC document collected in this step. It is submitted
+      // to the protected /user/kyc endpoint immediately after OTP verification;
+      // it must NOT be collected again on a second onboarding screen.
+      if (idFile && formData.nin) {
+        try {
+          await setPendingKyc({
+            documentType: KYC_DOCUMENT_TYPE[formData.idType] || "nin",
+            nin: formData.nin,
+            file: idFile,
+          });
+        } catch (kycErr) {
+          console.error("Could not stash KYC document:", kycErr);
         }
       }
 
