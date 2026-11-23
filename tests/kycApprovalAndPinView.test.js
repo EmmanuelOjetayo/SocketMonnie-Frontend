@@ -55,8 +55,27 @@ test("profile gates KYC details behind a backend PIN check", () => {
   assert.ok(source.includes("viewKycDetails({ pin: kycPin })"));
   assert.ok(source.includes('type="password"'));
   assert.ok(source.includes("inputMode=\"numeric\""));
-  assert.ok(source.includes("kycSubmitted && !kycDetails"));
+  assert.ok(source.includes("const [kycUnlocked, setKycUnlocked] = useState(false);"));
+  assert.ok(source.includes("{!kycUnlocked && ("));
+  assert.ok(source.includes("{kycUnlocked && ("));
   assert.ok(source.includes("{kycDetails && ("));
+
+  // The profile menu must not leak KYC status before the PIN gate either.
+  assert.ok(source.includes('subtitle: "Locked — verify Transaction PIN to view"'));
+  assert.ok(!source.includes("badge: kycStatus"), "KYC status badge must be hidden until PIN unlock");
+
+  // The PIN form is rendered before any status, document or upload block in
+  // the KYC modal (other sections of the page have their own approved checks).
+  const modal = source.slice(source.indexOf('{activeModal === "kyc" && ('));
+  const gateAt = modal.indexOf("{!kycUnlocked && (");
+  for (const marker of [
+    '{kycStatus === "approved" && (',
+    '{kycStatus === "rejected" && (',
+    '{kycDetails && (',
+    '{kycStatus !== "approved" && (',
+  ]) {
+    assert.ok(gateAt < modal.indexOf(marker), `${marker} rendered before PIN gate`);
+  }
 
   // Sensitive values come only from the PIN-verified response, never from the
   // persisted user object.
@@ -76,6 +95,7 @@ test("profile gates KYC details behind a backend PIN check", () => {
   for (const block of [openBlock, closeBlock]) {
     assert.ok(block.includes("setKycPin(\"\")"));
     assert.ok(block.includes("setKycDetails(null)"));
+    assert.ok(block.includes("setKycUnlocked(false)"), "every open/close must re-lock KYC");
   }
 
   const failBlock = source.slice(
@@ -83,7 +103,15 @@ test("profile gates KYC details behind a backend PIN check", () => {
     source.indexOf("function handleSetPin() {")
   );
   assert.ok(failBlock.includes("setKycDetails(null)"), "failed PIN must hide details");
+  assert.ok(failBlock.includes("setKycUnlocked(false)"), "failed PIN must keep KYC locked");
+  assert.ok(failBlock.includes("setKycUnlocked(true)"), "successful PIN must unlock");
   assert.ok(!/localStorage|sessionStorage/.test(failBlock), "PIN must not be persisted");
+
+  const hideBlock = source.slice(
+    source.indexOf("Hide details") - 400,
+    source.indexOf("Hide details") + 40
+  );
+  assert.ok(hideBlock.includes("setKycUnlocked(false)"), "hiding details must re-lock KYC");
 });
 
 test("KYC view service sends only the PIN to the protected endpoint", () => {

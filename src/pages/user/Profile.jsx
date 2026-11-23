@@ -139,6 +139,9 @@ export function Profile() {
   const [kycPin, setKycPin] = useState("");
   const [kycDetails, setKycDetails] = useState(null);
   const [isUnlockingKyc, setIsUnlockingKyc] = useState(false);
+  // Nothing KYC-related is rendered until the backend verifies this member's
+  // own transaction PIN for the current modal session.
+  const [kycUnlocked, setKycUnlocked] = useState(false);
 
   // 4. Security / Pin
   const [pin, setPin] = useState(""); // Set-PIN flow (onboarding / not yet set)
@@ -378,6 +381,7 @@ export function Profile() {
     // Every open is a new viewing session: a previous PIN unlock is discarded.
     setKycPin("");
     setKycDetails(null);
+    setKycUnlocked(false);
     setKycFile(null);
     setActiveModal("kyc");
   }
@@ -386,6 +390,7 @@ export function Profile() {
     setActiveModal(null);
     setKycPin("");
     setKycDetails(null);
+    setKycUnlocked(false);
     setKycFile(null);
   }
 
@@ -439,14 +444,17 @@ export function Profile() {
       const res = await viewKycDetails({ pin: kycPin });
       if (res?.success) {
         setKycDetails(res?.data?.kyc || null);
+        setKycUnlocked(true);
         setKycPin("");
       } else {
         setKycDetails(null);
+        setKycUnlocked(false);
         toast.error(res?.message || "Could not verify Transaction PIN");
       }
     } catch (error) {
-      // Never retain details from a previous attempt after a failed PIN.
+      // Never retain details — or unlocked access — after a failed PIN.
       setKycDetails(null);
+      setKycUnlocked(false);
       toast.error(error?.data?.message || error?.message || "Could not verify Transaction PIN");
     } finally {
       setIsUnlockingKyc(false);
@@ -668,8 +676,8 @@ export function Profile() {
     {
       icon: ShieldCheck,
       title: "KYC Verification",
-      subtitle: kycSubmitted ? "View or update document" : "Upload verification documents",
-      badge: kycStatus,
+      // No KYC state is exposed on the profile surface before the PIN gate.
+      subtitle: "Locked — verify Transaction PIN to view",
       action: openKycModal,
     },
     {
@@ -1052,7 +1060,59 @@ export function Profile() {
               </button>
             </div>
 
-            {/* KYC approval lock: approved records are read-only for members */}
+            {/* PIN gate: no KYC status, document, rejection reason or upload
+                form renders until the backend verifies this member's PIN. */}
+            {!kycUnlocked && (
+              <form onSubmit={handleViewKyc} className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Unlock KYC</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Enter your 4-digit Transaction PIN to view or manage your KYC record.
+                  </p>
+                  {!user?.isPinSet && (
+                    <p className="text-[11px] font-medium text-amber-700 mt-1">
+                      You have not set a Transaction PIN yet. Set one in Security &amp; Transaction PIN first.
+                    </p>
+                  )}
+                </div>
+                <Input
+                  label="Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={4}
+                  placeholder="4-digit PIN"
+                  value={kycPin}
+                  onChange={(e) => setKycPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  isLoading={isUnlockingKyc}
+                  disabled={kycPin.length !== 4 || !user?.isPinSet}
+                  className="rounded-full bg-[#1d2d6d]"
+                >
+                  Verify PIN &amp; Unlock
+                </Button>
+                {!user?.isPinSet && (
+                  <Button
+                    type="button"
+                    fullWidth
+                    onClick={() => {
+                      closeKycModal();
+                      setActiveModal("pin");
+                    }}
+                    className="rounded-full border border-[#1d2d6d] bg-white text-[#1d2d6d]"
+                  >
+                    Set Transaction PIN
+                  </Button>
+                )}
+              </form>
+            )}
+
+            {kycUnlocked && (
+              <>
+                {/* KYC approval lock: approved records are read-only for members */}
             {kycStatus === "approved" && (
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <p className="text-xs font-bold text-emerald-700">Your KYC has been approved and is now locked.</p>
@@ -1089,41 +1149,6 @@ export function Profile() {
               </div>
             )}
 
-            {kycSubmitted && !kycDetails && (
-              <form onSubmit={handleViewKyc} className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-                <div>
-                  <p className="text-xs font-bold text-gray-800">Unlock KYC details</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Enter the 4-digit Transaction PIN you use for transfers.
-                  </p>
-                  {!user?.isPinSet && (
-                    <p className="text-[11px] font-medium text-amber-700 mt-1">
-                      You have not set a Transaction PIN yet. Set one in Security &amp; Transaction PIN first.
-                    </p>
-                  )}
-                </div>
-                <Input
-                  label="Transaction PIN"
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={4}
-                  placeholder="4-digit PIN"
-                  value={kycPin}
-                  onChange={(e) => setKycPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                />
-                <Button
-                  type="submit"
-                  fullWidth
-                  isLoading={isUnlockingKyc}
-                  disabled={kycPin.length !== 4}
-                  className="rounded-full bg-[#1d2d6d]"
-                >
-                  Verify PIN &amp; View
-                </Button>
-              </form>
-            )}
-
             {kycDetails && (
               <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
                 <div className="flex items-center justify-between">
@@ -1131,7 +1156,9 @@ export function Profile() {
                   <button
                     type="button"
                     onClick={() => {
+                      // Re-lock: the next view requires a fresh backend PIN check.
                       setKycDetails(null);
+                      setKycUnlocked(false);
                       setKycPin("");
                     }}
                     className="text-[11px] font-semibold text-emerald-800 hover:underline"
@@ -1209,6 +1236,8 @@ export function Profile() {
             <Button fullWidth isLoading={isUploadingKyc} onClick={handleKycUpload} className="mt-4 rounded-full bg-[#1d2d6d]">
               {kycSubmitted ? "Update Document" : "Submit KYC"}
             </Button>
+            )}
+              </>
             )}
           </div>
         </div>
