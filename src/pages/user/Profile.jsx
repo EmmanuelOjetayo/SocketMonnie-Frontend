@@ -36,6 +36,7 @@ import {
   updatePersonalInfo,
   updateBankDetails,
   uploadKycDocument,
+  viewKycDetails,
   uploadProfilePicture,
   deleteProfilePicture,
   setTransactionPin,
@@ -54,7 +55,7 @@ function getGreeting() {
 }
 
 export function Profile() {
-  const { user, setUser, logout } = useAuth();
+  const { user, setUser, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState(null);
   const [referralLink, setReferralLink] = useState("");
@@ -76,6 +77,7 @@ export function Profile() {
   const regNumber = user?.referralCode || user?._id?.substring(0, 8) || "N/A";
   const greeting = getGreeting();
   const kycStatus = user?.kycStatus || "unverified";
+  const kycSubmitted = user?.kycSubmitted === true;
 
   useEffect(() => {
     if (user?.referralCode) {
@@ -133,6 +135,10 @@ export function Profile() {
   });
   const [kycFile, setKycFile] = useState(null);
   const [isUploadingKyc, setIsUploadingKyc] = useState(false);
+  // Sensitive KYC details live only in component memory after a PIN check.
+  const [kycPin, setKycPin] = useState("");
+  const [kycDetails, setKycDetails] = useState(null);
+  const [isUnlockingKyc, setIsUnlockingKyc] = useState(false);
 
   // 4. Security / Pin
   const [pin, setPin] = useState(""); // Set-PIN flow (onboarding / not yet set)
@@ -173,12 +179,8 @@ export function Profile() {
         });
       }
 
-      if (user.documentType) {
-        setKycData({
-          documentType: user.documentType || "nin",
-          nin: user.nin || "",
-        });
-      }
+      // NIN/document data are intentionally never prefilled from user state.
+      // A replacement submission requires the member to re-enter the NIN.
     }
   }, [user]);
 
@@ -372,6 +374,21 @@ export function Profile() {
     }
   }
 
+  function openKycModal() {
+    // Every open is a new viewing session: a previous PIN unlock is discarded.
+    setKycPin("");
+    setKycDetails(null);
+    setKycFile(null);
+    setActiveModal("kyc");
+  }
+
+  function closeKycModal() {
+    setActiveModal(null);
+    setKycPin("");
+    setKycDetails(null);
+    setKycFile(null);
+  }
+
   async function handleKycUpload() {
     // KYC policy: NIN is the sole national identity number collected.
     // Once approved, the KYC record is locked (read-only for the member).
@@ -383,21 +400,24 @@ export function Profile() {
       toast.error("Your 11-digit NIN is required for verification");
       return;
     }
-    if (!kycFile && !user?.documentUrl) {
+    // The backend always requires a file for a (re)submission.
+    if (!kycFile) {
       toast.error("Please select a document file to upload");
       return;
     }
     setIsUploadingKyc(true);
     const formData = new FormData();
-    if (kycFile) formData.append("file", kycFile);
+    formData.append("file", kycFile);
     formData.append("documentType", kycData.documentType);
     formData.append("nin", kycData.nin);
 
     try {
       const res = await uploadKycDocument(formData);
       if (res?.success) {
+        await refreshUser();
+        setKycFile(null);
+        closeKycModal();
         toast.success("KYC Document updated successfully!");
-        setActiveModal(null);
       } else {
         toast.error(res?.message || "Failed to update KYC");
       }
@@ -405,6 +425,31 @@ export function Profile() {
       toast.error(error?.data?.message || error?.message || "Failed to update document");
     } finally {
       setIsUploadingKyc(false);
+    }
+  }
+
+  async function handleViewKyc(e) {
+    e?.preventDefault?.();
+    if (kycPin.length !== 4) {
+      toast.error("Enter your 4-digit Transaction PIN");
+      return;
+    }
+    setIsUnlockingKyc(true);
+    try {
+      const res = await viewKycDetails({ pin: kycPin });
+      if (res?.success) {
+        setKycDetails(res?.data?.kyc || null);
+        setKycPin("");
+      } else {
+        setKycDetails(null);
+        toast.error(res?.message || "Could not verify Transaction PIN");
+      }
+    } catch (error) {
+      // Never retain details from a previous attempt after a failed PIN.
+      setKycDetails(null);
+      toast.error(error?.data?.message || error?.message || "Could not verify Transaction PIN");
+    } finally {
+      setIsUnlockingKyc(false);
     }
   }
 
@@ -623,9 +668,9 @@ export function Profile() {
     {
       icon: ShieldCheck,
       title: "KYC Verification",
-      subtitle: user?.documentUrl ? "View or update document" : "Upload verification documents",
+      subtitle: kycSubmitted ? "View or update document" : "Upload verification documents",
       badge: kycStatus,
-      action: () => setActiveModal("kyc"),
+      action: openKycModal,
     },
     {
       icon: Lock,
@@ -1002,7 +1047,7 @@ export function Profile() {
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-lg font-bold text-gray-900">KYC Verification</h3>
-              <button type="button" onClick={() => setActiveModal(null)} className="rounded-full p-1 transition-colors hover:bg-gray-100">
+              <button type="button" onClick={closeKycModal} className="rounded-full p-1 transition-colors hover:bg-gray-100">
                 <X className="size-5 text-gray-500" />
               </button>
             </div>
@@ -1012,7 +1057,7 @@ export function Profile() {
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <p className="text-xs font-bold text-emerald-700">Your KYC has been approved and is now locked.</p>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Your verified identity details cannot be modified. You can view your submitted document below.
+                  Your verified identity details cannot be modified. Verify your PIN to view them.
                 </p>
               </div>
             )}
@@ -1032,24 +1077,94 @@ export function Profile() {
               </div>
             )}
 
-            {/* Existing Document Preview Badge */}
-            {user?.documentUrl && (
-              <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <FileText className="size-5 text-[#3b5bdb]" />
-                  <div>
-                    <p className="text-xs font-semibold text-gray-800">Uploaded Document</p>
-                    <p className="text-[10px] text-gray-500 uppercase">{user.documentType || "Verification File"}</p>
+            {/* Submitted KYC is never rendered from user state — only from the
+                PIN-protected response below. */}
+            {kycSubmitted && (
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-2.5">
+                <FileText className="size-5 text-[#3b5bdb]" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-800">Submitted KYC</p>
+                  <p className="text-[10px] text-gray-500">Protected — verify your PIN to view</p>
+                </div>
+              </div>
+            )}
+
+            {kycSubmitted && !kycDetails && (
+              <form onSubmit={handleViewKyc} className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Unlock KYC details</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Enter the 4-digit Transaction PIN you use for transfers.
+                  </p>
+                  {!user?.isPinSet && (
+                    <p className="text-[11px] font-medium text-amber-700 mt-1">
+                      You have not set a Transaction PIN yet. Set one in Security &amp; Transaction PIN first.
+                    </p>
+                  )}
+                </div>
+                <Input
+                  label="Transaction PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={4}
+                  placeholder="4-digit PIN"
+                  value={kycPin}
+                  onChange={(e) => setKycPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  isLoading={isUnlockingKyc}
+                  disabled={kycPin.length !== 4}
+                  className="rounded-full bg-[#1d2d6d]"
+                >
+                  Verify PIN &amp; View
+                </Button>
+              </form>
+            )}
+
+            {kycDetails && (
+              <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-emerald-800">KYC details verified</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKycDetails(null);
+                      setKycPin("");
+                    }}
+                    className="text-[11px] font-semibold text-emerald-800 hover:underline"
+                  >
+                    Hide details
+                  </button>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-500">NIN</span>
+                    <span className="font-semibold text-gray-900">{kycDetails.nin || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-500">Document type</span>
+                    <span className="font-semibold uppercase text-gray-900">{kycDetails.documentType || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-500">Status</span>
+                    <span className="font-semibold capitalize text-gray-900">
+                      {String(kycDetails.kycStatus || kycStatus).replace(/_/g, " ")}
+                    </span>
                   </div>
                 </div>
-                <a
-                  href={user.documentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs font-medium text-[#3b5bdb] hover:underline"
-                >
-                  <Eye className="size-3.5" /> View
-                </a>
+                {kycDetails.documentUrl && (
+                  <a
+                    href={kycDetails.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs font-semibold text-[#3b5bdb] hover:underline"
+                  >
+                    <Eye className="size-3.5" /> Open submitted document
+                  </a>
+                )}
               </div>
             )}
 
@@ -1079,7 +1194,7 @@ export function Profile() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-gray-700">
-                  {user?.documentUrl ? "Replace File (Optional)" : "Upload Document File"}
+                  {kycSubmitted ? "Replace File (Required)" : "Upload Document File"}
                 </label>
                 <input
                   type="file"
@@ -1092,7 +1207,7 @@ export function Profile() {
 
             {kycStatus !== "approved" && (
             <Button fullWidth isLoading={isUploadingKyc} onClick={handleKycUpload} className="mt-4 rounded-full bg-[#1d2d6d]">
-              {user?.documentUrl ? "Update Document" : "Submit KYC"}
+              {kycSubmitted ? "Update Document" : "Submit KYC"}
             </Button>
             )}
           </div>

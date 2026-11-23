@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import * as authService from "@/services/auth";
 import { getCurrentUser } from "@/services/user";
@@ -13,29 +14,33 @@ import { ROUTES } from "@/constants/routes";
 
 const AuthContext = createContext(null);
 
+// Without WebSockets, a light poll keeps KYC approval in sync even when the
+// member leaves the dashboard open while an admin reviews the submission.
+const PROFILE_REFRESH_INTERVAL_MS = 60_000;
+const REFRESH_DEDUPE_MS = 5_000;
+
+function extractUser(res) {
+  if (!res || typeof res !== "object") return null;
+  if (res?.data?.user) return res.data.user;
+  if (res?.user) return res.user;
+  if (res?.data?.fetchedUser) return res.data.fetchedUser;
+  if (res?.fetchedUser) return res.fetchedUser;
+  if (res?._id || res?.id || res?.email) return res;
+  return null;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const lastRefreshRef = useRef(0);
 
   // Restore logged-in user on page refresh (httpOnly cookie is sent automatically)
   useEffect(() => {
     getCurrentUser()
       .then((res) => {
-        // Normalize response: accepted shapes are
-        // { success, data: { user } }, { success, user }, { data: { user } }, { user }, { success: false }
-        let fetchedUser = null;
-        if (res && typeof res === "object") {
-          if (res?.data && res?.data?.user) fetchedUser = res.data.user;
-          else if (res?.user) fetchedUser = res.user;
-          else if (res?.data?.fetchedUser) fetchedUser = res.data.fetchedUser;
-          else if (res?.fetchedUser) fetchedUser = res.fetchedUser;
-          else if (res?.user) fetchedUser = res.user;
-        }
-        // Also accept the raw user object if it has identifying properties
-        if (fetchedUser && (fetchedUser._id || fetchedUser.id || fetchedUser.email || fetchedUser.email)) {
+        const fetchedUser = extractUser(res);
+        if (fetchedUser) {
           setUser(normalizeUser(fetchedUser));
-        } else if (res && (res._id || res.id || res.email)) {
-          setUser(normalizeUser(res));
         } else {
           console.error("Invalid user payload", res);
         }
@@ -51,6 +56,52 @@ export function AuthProvider({ children }) {
       });
   }, []);
 
+  // Re-fetch /me so admin KYC decisions appear without logout/login.
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await getCurrentUser();
+      const fetchedUser = extractUser(res);
+      if (fetchedUser) {
+        setUser(normalizeUser(fetchedUser));
+      }
+      return fetchedUser || null;
+    } catch (err) {
+      if (err?.status === 401 || err?.status === 403) {
+        setUser(null);
+      }
+      return null;
+    }
+  }, []);
+
+  const refreshIfStale = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRefreshRef.current < REFRESH_DEDUPE_MS) return;
+    lastRefreshRef.current = now;
+    refreshUser();
+  }, [refreshUser]);
+
+  const userId = user?._id || user?.id || null;
+
+  useEffect(() => {
+    if (!userId) return undefined;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshIfStale();
+    };
+    const pollTimer = setInterval(() => {
+      if (document.visibilityState === "visible") refreshIfStale();
+    }, PROFILE_REFRESH_INTERVAL_MS);
+
+    window.addEventListener("focus", refreshIfStale);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshIfStale);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearInterval(pollTimer);
+    };
+  }, [userId, refreshIfStale]);
+
   // Used by both Login and Verify OTP — no token storage, cookie is set by backend
   const authenticate = useCallback((userData) => {
     setUser(normalizeUser(userData));
@@ -60,7 +111,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(
     async (credentials) => {
       const res = await authService.login(credentials);
-      authenticate(res.data.user);
+      authenticate(extractUser(res) || res.data?.user);
       return res;
     },
     [authenticate]
@@ -92,6 +143,7 @@ export function AuthProvider({ children }) {
     login,
     logout,
     authenticate,
+    refreshUser,
     getHomeRoute,
   };
 

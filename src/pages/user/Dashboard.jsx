@@ -202,7 +202,9 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
   const { label: scoreLabel } = getScoreRating(userScore);
 
   // Eligibility Checks
-  const kycSubmitted = !!user?.documentUrl;
+  // Backend sends a sanitized boolean; the document URL itself is only
+  // available after PIN verification and is never stored in user state.
+  const kycSubmitted = user?.kycSubmitted === true;
   const kycApproved = user?.kycStatus === "approved";
   const bankVerified = user?.bankDetails?.verified === true;
   const bankAccountSet = !!user?.bankDetails?.accountNumber;

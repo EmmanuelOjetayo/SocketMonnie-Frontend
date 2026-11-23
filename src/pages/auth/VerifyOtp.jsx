@@ -14,7 +14,7 @@ import { useResendCooldown } from "@/hooks/useResendCooldown";
 import logo from "@/assets/logo.png";
 
 export function VerifyOtp() {
-  const { authenticate, setUser } = useAuth();
+  const { authenticate, setUser, refreshUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,6 +84,9 @@ export function VerifyOtp() {
             throw new Error(kycRes?.message || "KYC upload failed");
           }
           toast.success("Identity document uploaded.");
+          // Pull the latest /me payload so `kycSubmitted` is accurate before
+          // the user reaches PIN setup / dashboard.
+          await refreshUser();
         } catch (kycErr) {
           console.error("KYC upload failed:", kycErr);
           try {

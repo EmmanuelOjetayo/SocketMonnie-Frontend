@@ -27,11 +27,23 @@ export async function updatePersonalInfo(payload) {
  * ## Upload KYC Document
  * POST /api/user/kyc
  * Body: FormData { documentType, file, nin }
- * Response: { success, data: { documentType, documentUrl, kycStatus } }
+ * Response: { success, data: { kycStatus, kycSubmitted } }
  */
 export async function uploadKycDocument(formData) {
   if (USE_MOCK) return mockDelay({ success: true, status: "pending_review" });
   return apiClient.post("/user/kyc", formData);
+}
+
+/**
+ * ## View submitted KYC details (PIN protected)
+ * POST /api/user/kyc/view
+ * Body: { pin } — the backend verifies the bcrypt-hashed transaction PIN
+ * before returning NIN/document data. No user id is accepted from the client.
+ * Response: { success, data: { kyc } }
+ */
+export async function viewKycDetails({ pin }) {
+  if (USE_MOCK) return mockDelay({ success: true, data: { kyc: null } });
+  return apiClient.post("/user/kyc/view", { pin });
 }
 
 /**
