@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { forgotPassword } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const { remaining, isCoolingDown, startCooldown } = useResendCooldown();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -18,6 +20,7 @@ export function ForgotPassword() {
     try {
       const res = await forgotPassword({ email });
       setSent(true);
+      startCooldown();
       toast.success(res?.message || "Reset OTP sent to your email. Please check your inbox or spam/junk folder if you don't see it.");
     } catch (error) {
       toast.error(error?.data?.message || "Could not send reset code. Please try again.");
@@ -31,6 +34,7 @@ export function ForgotPassword() {
     setIsSubmitting(true);
     try {
       const res = await forgotPassword({ email });
+      startCooldown();
       toast.success(res?.message || "A new reset OTP has been sent. Please check your inbox or spam/junk folder.");
     } catch (error) {
       toast.error(error?.data?.message || "Could not resend reset code. Please try again.");
@@ -72,10 +76,14 @@ export function ForgotPassword() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isCoolingDown}
               className="font-semibold text-brand-600 hover:underline disabled:opacity-60"
             >
-              {isSubmitting ? "Resending..." : "Resend code"}
+              {isSubmitting
+                ? "Resending..."
+                : isCoolingDown
+                  ? `Resend code in ${remaining}s`
+                  : "Resend code"}
             </button>
           </p>
           <button

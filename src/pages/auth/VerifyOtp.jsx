@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { takePendingSelfie } from "@/utils/pendingSelfie";
 import { setPendingKyc, takePendingKyc } from "@/utils/pendingKyc";
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/context/AuthContext";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 import logo from "@/assets/logo.png";
 
 export function VerifyOtp() {
@@ -23,6 +24,13 @@ export function VerifyOtp() {
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const { remaining, isCoolingDown, startCooldown } = useResendCooldown();
+
+  // The registration OTP was sent before this screen opened, so start the
+  // cooldown immediately to avoid an accidental double send.
+  useEffect(() => {
+    startCooldown();
+  }, [startCooldown]);
 
   async function handleVerify() {
     if (destination === "your email") {
@@ -107,6 +115,7 @@ export function VerifyOtp() {
     try {
       const res = await resendOtp({ email: destination });
       setCode("");
+      startCooldown();
       toast.success(res?.message || "A new verification code has been sent. Please check your inbox or spam/junk folder.");
     } catch (error) {
       toast.error(error?.data?.message || error?.message || "Could not resend OTP. Please try again.");
@@ -169,10 +178,14 @@ export function VerifyOtp() {
         <button
           type="button"
           onClick={handleResend}
-          disabled={isResending || isSubmitting}
+          disabled={isResending || isSubmitting || isCoolingDown}
           className="mt-4 w-full text-center text-xs font-semibold text-[#3B62EC] hover:underline disabled:opacity-60"
         >
-          {isResending ? "Resending..." : "Resend code"}
+          {isResending
+            ? "Resending..."
+            : isCoolingDown
+              ? `Resend code in ${remaining}s`
+              : "Resend code"}
         </button>
       </div>
     </div>

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/Input";
 import { OtpInput } from "@/components/forms/OtpInput";
 import { useAuth } from "@/context/AuthContext";
 import { useAsync } from "@/hooks/useAsync";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 import { formatNaira } from "@/utils/format";
 import { getSavingsSummary } from "@/services/savings";
 import { getActiveLoan } from "@/services/loans";
@@ -144,6 +145,7 @@ export function Profile() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
   const [isSendingResetOtp, setIsSendingResetOtp] = useState(false);
+  const { remaining, isCoolingDown, startCooldown } = useResendCooldown();
 
   // 5. Profile Photo (CRUD: upload/replace + delete)
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
@@ -480,6 +482,7 @@ export function Profile() {
       if (res?.success) {
         setResetOtp("");
         setPinStage("reset");
+        startCooldown();
         toast.success(res.message || "PIN reset OTP sent to your email.");
       } else {
         toast.error(res?.message || "Failed to send reset OTP");
@@ -1289,10 +1292,14 @@ export function Profile() {
                   <button
                     type="button"
                     onClick={handleForgotPinSubmit}
-                    disabled={isSendingResetOtp || isSavingPin}
+                    disabled={isSendingResetOtp || isSavingPin || isCoolingDown}
                     className="mt-2 text-xs font-semibold text-[#1d2d6d] hover:underline disabled:opacity-60"
                   >
-                    {isSendingResetOtp ? "Resending..." : "Resend code"}
+                    {isSendingResetOtp
+                      ? "Resending..."
+                      : isCoolingDown
+                        ? `Resend code in ${remaining}s`
+                        : "Resend code"}
                   </button>
                 </div>
                 <Input

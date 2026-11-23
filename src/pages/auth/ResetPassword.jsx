@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { OtpInput } from "@/components/forms/OtpInput";
 import { forgotPassword, resetPassword } from "@/services/auth";
 import { ROUTES } from "@/constants/routes";
+import { useResendCooldown } from "@/hooks/useResendCooldown";
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -16,6 +17,12 @@ export function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const { remaining, isCoolingDown, startCooldown } = useResendCooldown();
+
+  // The reset OTP was sent by the previous screen.
+  useEffect(() => {
+    startCooldown();
+  }, [startCooldown]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -52,6 +59,7 @@ export function ResetPassword() {
         toast.error(res?.message || "Could not resend reset code. Please try again.");
       } else {
         setOtp("");
+        startCooldown();
         toast.success(res?.message || "A new reset OTP has been sent. Please check your inbox or spam/junk folder.");
       }
     } catch (error) {
@@ -82,10 +90,14 @@ export function ResetPassword() {
           <button
             type="button"
             onClick={handleResend}
-            disabled={isResending || isSubmitting}
+            disabled={isResending || isSubmitting || isCoolingDown}
             className="mt-2 text-xs font-semibold text-brand-600 hover:underline disabled:opacity-60"
           >
-            {isResending ? "Resending..." : "Resend code"}
+            {isResending
+              ? "Resending..."
+              : isCoolingDown
+                ? `Resend code in ${remaining}s`
+                : "Resend code"}
           </button>
         </div>
         <Input
