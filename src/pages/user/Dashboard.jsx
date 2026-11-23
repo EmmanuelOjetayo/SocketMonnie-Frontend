@@ -370,7 +370,7 @@ const { data: pendingGuarantorRes, refetch: refreshPendingGuarantors } = useAsyn
                 <CheckItem ok={kycSubmitted && kycApproved} label="KYC Document" />
                 <CheckItem ok={bankAccountSet && bankVerified} label="Verified Bank" />
                 <CheckItem ok={hasTransactionPin} label="PIN Created" />
-                <CheckItem ok={meetsThreshold} label="Min Savings Target" />
+                <CheckItem ok={!!eligibility?.isEligible} label="Min Savings Target" />
               </div>
             </div>
 
