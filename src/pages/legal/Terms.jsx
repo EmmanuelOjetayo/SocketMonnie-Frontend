@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShieldCheck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ROUTES } from "@/constants/routes";
@@ -489,17 +489,26 @@ const acceptanceItems = [
 
 export function Terms({ onAccepted }) {
   const [agreed, setAgreed] = useState(false);
-  const [readSections, setReadSections] = useState([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from;
 
-  const markSectionRead = (id) => {
-    setReadSections((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const goBack = () => {
+    if (from) {
+      navigate(from);
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(ROUTES.LOGIN);
   };
-
-  const allRead = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"];
 
   const handleAccept = () => {
     if (!agreed) return;
     onAccepted?.({ agreed: true, acceptedAt: new Date().toISOString(), version: "1.0" });
+    goBack();
   };
 
   return (
@@ -507,9 +516,9 @@ export function Terms({ onAccepted }) {
       {/* Header */}
       <header className="relative px-5 py-6 text-white shadow-md" style={{ background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)", borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
         <div className="flex items-center justify-between">
-          <Link to={ROUTES.LOGIN} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition">
+          <button type="button" onClick={goBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition">
             <ArrowLeft className="w-5 h-5 text-white" />
-          </Link>
+          </button>
           <h1 className="text-lg font-bold tracking-tight">Terms & Conditions</h1>
           <div className="w-10" />
         </div>

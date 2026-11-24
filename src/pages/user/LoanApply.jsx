@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -52,6 +52,7 @@ const TIER_LABELS = {
 
 export function LoanApply() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1486,12 +1487,12 @@ if (res) {
                     <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
                       <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="mt-0.5 rounded text-[#090F47] focus:ring-0" />
                       <span>
-                        I have read and agree to the <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+                        I have read and agree to the <Link to={ROUTES.TERMS} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
                       </span>
                     </label>
                     <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
                       <input type="checkbox" checked={privacyAccepted} onChange={(e) => setPrivacyAccepted(e.target.checked)} className="mt-0.5 rounded text-[#090F47] focus:ring-0" />
-                      <span>I acknowledge the collection and processing of my information as described in the <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.</span>
+                      <span>I acknowledge the collection and processing of my information as described in the <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.</span>
                     </label>
                   </div>
                   <Button

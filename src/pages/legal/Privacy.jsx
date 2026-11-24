@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShieldCheck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ROUTES } from "@/constants/routes";
@@ -66,18 +66,34 @@ const sections = [
 
 export function Privacy() {
   const [agreed, setAgreed] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from;
+
+  const goBack = () => {
+    if (from) {
+      navigate(from);
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(ROUTES.LOGIN);
+  };
 
   const handleAccept = () => {
-    setAgreed(true);
+    if (!agreed) return;
+    goBack();
   };
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] pb-16">
       <header className="relative px-5 py-6 text-white shadow-md" style={{ background: "linear-gradient(180deg, #5B76E1 0%, #32417B 100%)", borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}>
         <div className="flex items-center justify-between">
-          <Link to={ROUTES.LOGIN} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition">
+          <button type="button" onClick={goBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition">
             <ArrowLeft className="w-5 h-5 text-white" />
-          </Link>
+          </button>
           <h1 className="text-lg font-bold tracking-tight">Privacy Policy</h1>
           <div className="w-10" />
         </div>
@@ -120,7 +136,7 @@ export function Privacy() {
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-[11px] text-gray-600 mb-4">
-              By using Socket Moni you also agree to the <Link to={ROUTES.TERMS} className="font-semibold text-[#3B62EC]">Terms and Conditions</Link>.
+              By using Socket Moni you also agree to the <Link to={ROUTES.TERMS} state={{ from: from || location.pathname + location.search + location.hash }} className="font-semibold text-[#3B62EC]">Terms and Conditions</Link>.
             </p>
             <label className="flex items-start gap-2 cursor-pointer bg-[#EEF1FD] border border-[#3B62EC]/30 rounded-2xl p-3 mb-5">
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 w-4 h-4 rounded text-[#3B62EC] focus:ring-0" />

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -33,6 +33,7 @@ function resolveErrorMessage(error) {
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     register,
@@ -127,11 +128,11 @@ export function Login() {
                 <input type="checkbox" {...register("termsAccepted")} className="mt-0.5 rounded text-[#3B62EC] focus:ring-0" />
                 <span>
                   I have read and agree to the{" "}
-                  <Link to={ROUTES.TERMS} className="font-semibold text-[#3B62EC]">
+                  <Link to={ROUTES.TERMS} state={{ from: location.pathname + location.search + location.hash }} className="font-semibold text-[#3B62EC]">
                     Terms and Conditions
                   </Link>{" "}
                   and the{" "}
-                  <Link to={ROUTES.PRIVACY} className="font-semibold text-[#3B62EC]">
+                  <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="font-semibold text-[#3B62EC]">
                     Privacy Policy
                   </Link>
                   .
@@ -141,7 +142,7 @@ export function Login() {
                 <input type="checkbox" {...register("privacyAccepted")} className="mt-0.5 rounded text-[#3B62EC] focus:ring-0" />
                 <span>
                   I acknowledge the collection and processing of my information as described in the{" "}
-                  <Link to={ROUTES.PRIVACY} className="font-semibold text-[#3B62EC]">
+                  <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="font-semibold text-[#3B62EC]">
                     Privacy Policy
                   </Link>
                   .

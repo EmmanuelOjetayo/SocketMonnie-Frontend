@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   User,
@@ -57,6 +57,7 @@ const KYC_DOCUMENT_TYPE = {
 
 export function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   // Auto-fill referral code from a shared link, e.g. ?ref=CODE or
@@ -277,16 +278,16 @@ export function Register() {
 
         {/* 4-Step Stepper Header */}
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between relative px-2">
-            <div className="absolute top-4 left-8 right-8 h-[2px] bg-gray-200 z-0" />
+          <div className="flex items-center justify-between relative px-1 md:px-2">
+            <div className="absolute top-4 left-6 right-6 md:left-8 md:right-8 h-[2px] bg-gray-200 z-0" />
 
             {STEPS.map((s, idx) => {
               const Icon = s.icon;
               const isReached = idx <= step;
               return (
-                <div key={s.label} className={`relative z-10 flex flex-col items-center ${isReached ? "" : "opacity-40"}`}>
+                <div key={s.label} className={`relative z-10 flex flex-col items-center min-w-0 flex-1 ${isReached ? "" : "opacity-40"}`}>
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                       isReached
                         ? "bg-[#3B62EC] text-white"
                         : "bg-gray-100 text-gray-500 border border-gray-200"
@@ -294,7 +295,7 @@ export function Register() {
                   >
                     <Icon className="w-3.5 h-3.5" />
                   </div>
-                  <span className={`text-[10px] mt-2 ${idx === step ? "font-bold text-gray-900" : "font-semibold text-gray-500"}`}>
+                  <span className={`text-[9px] md:text-[10px] mt-1.5 md:mt-2 whitespace-nowrap text-center leading-tight ${idx === step ? "font-bold text-gray-900" : "font-semibold text-gray-500"}`}>
                     {idx + 1}. {s.label}
                   </span>
                 </div>
@@ -471,7 +472,7 @@ export function Register() {
                   />
                   I agree to Socket Moniee's{" "}
                   <span className="text-[#3B62EC] font-semibold">
-                    <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms &amp; Condition</Link>
+                    <Link to={ROUTES.TERMS} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Terms &amp; Condition</Link>
                   </span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-700">
@@ -484,7 +485,7 @@ export function Register() {
                   />
                   I agree to Socket Moniee's{" "}
                   <span className="text-[#3B62EC] font-semibold">
-                    <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>
+                    <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>
                   </span>
                 </label>
               </div>

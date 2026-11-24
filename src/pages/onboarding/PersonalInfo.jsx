@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Lock, Eye, EyeOff, Fingerprint, ShieldCheck, CheckCircle2 } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -8,6 +8,7 @@ import { ROUTES } from "@/constants/routes";
 
 export function PersonalInfo() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -219,8 +220,8 @@ export function PersonalInfo() {
               />
               <span>
                 I have read and agree to the{" "}
-                <Link to={ROUTES.TERMS} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the{" "}
-                <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+                <Link to={ROUTES.TERMS} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Terms and Conditions</Link> and the{" "}
+                <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
               </span>
             </label>
             <label className="flex items-start gap-2 cursor-pointer text-xs text-gray-700">
@@ -231,7 +232,7 @@ export function PersonalInfo() {
                 className="mt-0.5 w-4 h-4 rounded text-[#3B62EC] focus:ring-0"
               />
               <span>I acknowledge the collection and processing of my information as described in the{" "}
-                <Link to={ROUTES.PRIVACY} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
+                <Link to={ROUTES.PRIVACY} state={{ from: location.pathname + location.search + location.hash }} className="text-[#3B62EC] font-semibold">Privacy Policy</Link>.
               </span>
             </label>
           </div>
