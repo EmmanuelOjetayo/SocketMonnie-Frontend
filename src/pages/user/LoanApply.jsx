@@ -95,8 +95,15 @@ export function LoanApply() {
     try {
       const res = await cancelLoanApplication(loanId, "Withdrawn by applicant");
       toast.success(res?.message || "Loan application withdrawn.");
-      setSubmittedLoanData(res?.loan || null);
-      setApplicationLoanId(null);
+      const returnedLoan = res?.loan;
+      if (!returnedLoan || returnedLoan.deleted || returnedLoan.status === "terminated") {
+        setSubmittedLoanData(null);
+        setApplicationLoanId(null);
+        setGuarantorStatuses(["pending", "pending", "pending", "pending"]);
+        setStep(0);
+      } else {
+        setSubmittedLoanData(returnedLoan);
+      }
       refetchExistingLoan();
       localStorage.removeItem(draftKey);
       deleteUserDraft().catch(() => {});
@@ -246,7 +253,21 @@ export function LoanApply() {
   }, [draftKey, step, getValues, applicationLoanId, guarantorStatuses]);
 
  useEffect(() => {
-  if (!existingLoan) return;
+  if (!existingLoan) {
+    // Active-loan endpoint returned no loan. If we were showing a
+    // pre-approval/withdrawn application that was terminated/deleted, clear
+    // the stale submitted state so the member can apply again.
+    if (
+      submittedLoanData &&
+      ["waiting_guarantor", "pending_review", "withdrawn", "terminated"].includes(submittedLoanData.status)
+    ) {
+      setSubmittedLoanData(null);
+      setApplicationLoanId(null);
+      setGuarantorStatuses(["pending", "pending", "pending", "pending"]);
+      setStep(0);
+    }
+    return;
+  }
 
   // Only statuses the backend actually produces (LoanModel enum).
   const submittedStatuses = [
@@ -262,8 +283,13 @@ export function LoanApply() {
   // If there is an active/submitted loan application,
   // restore it instead of clearing the application.
   if (submittedStatuses.includes(existingLoan.status)) {
-    setSubmittedLoanData(existingLoan);
-    setApplicationLoanId(existingLoan._id);
+    const sameLoan =
+      submittedLoanData?._id === existingLoan._id &&
+      submittedLoanData?.status === existingLoan.status;
+    if (!sameLoan) {
+      setSubmittedLoanData(existingLoan);
+      setApplicationLoanId(existingLoan._id);
+    }
 
     setGuarantorStatuses(
       (existingLoan.guarantors || []).map(
@@ -327,7 +353,7 @@ export function LoanApply() {
       guarantorReferralCodes: ["", "", "", ""],
     });
   }
-}, [draftKey, existingLoan, reset, setValue, user]);
+}, [draftKey, existingLoan, reset, setValue, user, submittedLoanData]);
   
 useEffect(() => {
   if (!submittedLoanData) return undefined;
@@ -347,7 +373,14 @@ useEffect(() => {
 
       const refreshedLoan = result?.data || result;
 
-      if (!refreshedLoan) return;
+      if (!refreshedLoan) {
+        // Loan was terminated/deleted — clear stale submitted UI.
+        setSubmittedLoanData(null);
+        setApplicationLoanId(null);
+        setGuarantorStatuses(["pending", "pending", "pending", "pending"]);
+        setStep(0);
+        return;
+      }
 
       setSubmittedLoanData(refreshedLoan);
       setApplicationLoanId(refreshedLoan._id);
